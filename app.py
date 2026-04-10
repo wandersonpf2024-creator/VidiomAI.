@@ -6,118 +6,82 @@ import google.generativeai as genai
 from youtube_transcript_api import YouTubeTranscriptApi
 
 # --- 1. CONFIGURAÇÃO VISUAL ---
-st.set_page_config(page_title="Vidiom AI | Pro Studio", layout="wide", page_icon="🎬")
+st.set_page_config(page_title="Vidiom AI | Premium", layout="wide", page_icon="🎬")
 
 st.markdown("""
     <style>
     .stApp { background-color: #050505; color: #e0e0e0; }
-    h1, h2, h3 { font-family: 'Inter', sans-serif; background: -webkit-linear-gradient(#fff, #888); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: 800; }
     .stButton>button { width: 100%; background: linear-gradient(135deg, #6366f1, #a855f7); color: white; border: none; padding: 12px; border-radius: 12px; font-weight: bold; }
-    .stTextInput>div>div>input { background-color: #0f0f0f !important; border: 1px solid #333 !important; color: white !important; border-radius: 10px !important; }
-    .card { background: #0a0a0a; border: 1px solid #1a1a1a; padding: 20px; border-radius: 15px; border-left: 5px solid #6366f1; margin-bottom: 20px; }
+    .stTextInput>div>div>input { background-color: #0f0f0f !important; border: 1px solid #333 !important; color: white !important; }
+    .video-container { position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; max-width: 100%; background: #000; border-radius: 15px; border: 2px solid #6366f1; }
+    .video-container iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. CONEXÃO COM A IA ---
-def carregar_modelo():
+# --- 2. CONFIGURAÇÃO IA ---
+def setup_ia():
     try:
-        api_key = st.secrets["GEMINI_API_KEY"]
-        genai.configure(api_key=api_key)
-        # Usamos o 1.5-flash que é o mais rápido e estável para apps web
-        return genai.GenerativeModel('gemini-1.5-flash')
-    except:
-        st.error("⚠️ Erro: Verifique se 'GEMINI_API_KEY' está correta nas Secrets do Streamlit.")
-        return None
+        if "GEMINI_API_KEY" in st.secrets:
+            genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+            return genai.GenerativeModel('gemini-1.5-flash')
+    except: return None
+    return None
 
-model = carregar_modelo()
-
-def get_video_id(url):
-    pattern = r'(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|\S*?[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})'
-    match = re.search(pattern, url)
-    return match.group(1) if match else None
+model = setup_ia()
 
 # --- 3. INTERFACE ---
-st.title("🛰️ VIDIOM AI - Estúdio Viral")
+st.title("🛰️ VIDIOM AI - Estúdio Digital")
 
 with st.sidebar:
-    st.markdown("### 🔑 Acesso")
-    email = st.text_input("Seu e-mail")
-    if email:
-        st.success("Conectado: 100 Créditos")
+    st.header("Acesso")
+    email = st.text_input("E-mail para créditos")
 
 if not email:
-    st.info("Digite seu e-mail para liberar as ferramentas.")
+    st.info("Insira o seu e-mail para ativar as ferramentas.")
 else:
-    tab1, tab2, tab3 = st.tabs(["✂️ Cortes por Link", "🎨 Imagens por Prompt", "🎥 Vídeos por Prompt"])
+    t1, t2, t3 = st.tabs(["✂️ Cortes", "🎨 Imagens", "🎥 Vídeos"])
 
-    # --- ABA 1: CORTES ---
-    with tab1:
-        st.subheader("Extrair Cortes de Links")
-        link_input = st.text_input("Cole o link (YouTube, TikTok, Instagram, etc):")
+    with t1:
+        st.subheader("Roteirista de Cortes")
+        link = st.text_input("Link do vídeo (YouTube/TikTok/etc):")
+        if st.button("Gerar Estratégia de Corte"):
+            if model:
+                with st.spinner("IA a analisar..."):
+                    res = model.generate_content(f"Crie um roteiro de corte viral para: {link}")
+                    st.write(res.text)
+
+    with t2:
+        st.subheader("Gerador de Imagem")
+        prompt_i = st.text_input("O que deseja criar?")
+        if st.button("Gerar Imagem"):
+            seed = random.randint(0, 99999)
+            img_url = f"https://image.pollinations.ai/prompt/{urllib.parse.quote(prompt_i)}?seed={seed}&model=flux&width=1024&height=1024&nologo=true"
+            st.image(img_url)
+
+    with t3:
+        st.subheader("Gerador de Vídeo IA")
+        prompt_v = st.text_input("Descreva a animação (ex: Fire burning in slow motion)")
         
-        if st.button("🧬 Analisar e Criar Roteiro"):
-            if not model:
-                st.error("IA não configurada.")
-            else:
-                with st.spinner("Analisando..."):
-                    vid_id = get_video_id(link_input)
-                    transcricao = ""
-                    
-                    # Se for YouTube, tenta pegar a fala
-                    if vid_id:
-                        try:
-                            t = YouTubeTranscriptApi.get_transcript(vid_id, languages=['pt', 'en'])
-                            transcricao = " ".join([i['text'] for i in t])
-                        except: transcricao = ""
-
-                    # IA faz o trabalho de roteiro e legendas
-                    prompt = (
-                        f"Analise o vídeo do link: {link_input}. "
-                        f"Texto extraído: {transcricao[:3000] if transcricao else 'Use o tema do link'}. "
-                        "Crie 2 roteiros de cortes virais (TikTok/Reels). "
-                        "Diga o Título, o Gancho (Hook) e quais partes da LEGENDA devem ser coloridas."
-                    )
-                    
-                    try:
-                        res = model.generate_content(prompt)
-                        st.markdown("---")
-                        st.markdown(f'<div class="card">{res.text}</div>', unsafe_allow_html=True)
-                    except Exception as e:
-                        st.error(f"Erro na conexão com a IA: {e}")
-
-    # --- ABA 2: IMAGENS ---
-    with tab2:
-        st.subheader("Gerar Imagem com IA (Flux)")
-        prompt_img = st.text_input("O que você quer criar?")
-        if st.button("🎨 Gerar Arte"):
-            with st.spinner("Desenhando..."):
-                seed = random.randint(1, 100000)
-                url_final = f"https://image.pollinations.ai/prompt/{urllib.parse.quote(prompt_img)}?width=1024&height=1024&nologo=true&seed={seed}&model=flux"
-                st.image(url_final)
-
-    # --- ABA 3: VÍDEO POR PROMPT (VERSÃO FIXA) ---
-    with tab3:
-        st.subheader("🎥 Gerador de Clipes Animados")
-        prompt_vid = st.text_input("Descreva a cena animada:", key="vid_prompt_novo")
-        
-        if st.button("🎬 Animar Cena"):
-            with st.spinner("Renderizando vídeo..."):
-                v_seed = random.randint(1, 9999)
-                safe_vid_prompt = urllib.parse.quote(prompt_vid)
-                # Link direto para o player
-                v_url = f"https://pollinations.ai/p/{safe_vid_prompt}?width=1280&height=720&model=video&seed={v_seed}"
+        if st.button("Gerar Vídeo"):
+            with st.spinner("A processar vídeo..."):
+                v_seed = random.randint(0, 9999)
+                # Usamos um link que foca apenas no resultado do vídeo
+                v_url = f"https://pollinations.ai/p/{urllib.parse.quote(prompt_v)}?width=1280&height=720&model=video&seed={v_seed}"
                 
-                # O segredo está no 'sandbox' e no estilo para não redirecionar
-                st.components.v1.html(f"""
-                    <div style="width:100%; height:450px; overflow:hidden; border-radius:15px; border:2px solid #6366f1;">
-                        <iframe 
-                            src="{v_url}" 
-                            width="100%" 
-                            height="100%" 
-                            style="border:none;" 
-                            sandbox="allow-scripts allow-same-origin"
-                            allowfullscreen>
-                        </iframe>
-                    </div>
-                """, height=500)
-                st.info("Aguarde cerca de 20 segundos. Se o site tentar 'fugir', o navegador vai bloqueá-lo e manter o vídeo aqui.")
+                # Exibimos o link direto e tentamos o carregamento via HTML seguro
+                st.markdown(f"✅ **Vídeo Gerado!** [Clique aqui para ver em ecrã inteiro se não carregar abaixo]({v_url})")
+                
+                # Técnica de Embed melhorada
+                html_code = f"""
+                <div class="video-container">
+                    <iframe 
+                        src="{v_url}" 
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                        allowfullscreen>
+                    </iframe>
+                </div>
+                """
+                st.components.v1.html(html_code, height=500)
+
+st.markdown("---")
+st.caption("Vidiom AI v2.1")
