@@ -98,30 +98,49 @@ else:
 
     # TAB 4: YOUTUBE PARA VIRAL (O SEU DIFERENCIAL)
     with tab4:
-        st.subheader("Cortes Automáticos de YouTube")
-        url_yt = st.text_input("Link do Vídeo do YouTube:")
-        if st.button("🧬 Analisar Vídeo"):
+        st.subheader("📺 YouTube para Shorts (Pro)")
+        st.write("Extraia roteiros de qualquer vídeo com áudio claro.")
+        url_yt = st.text_input("Cole o link do YouTube aqui:", key="yt_input")
+        
+        if st.button("🧬 Analisar Vídeo e Criar Cortes"):
             vid_id = get_video_id(url_yt)
             if vid_id:
-                try:
-                    with st.spinner("Capturando áudio e criando legendas..."):
-                        # Tenta capturar qualquer legenda disponível
-                        transcripts = YouTubeTranscriptApi.list_transcripts(vid_id)
+                with st.spinner("IA processando o conteúdo..."):
+                    try:
+                        # Tenta capturar as legendas
+                        transcript_text = ""
                         try:
-                            # Tenta português ou então a primeira disponível
-                            t = transcripts.find_transcript(['pt', 'en']).fetch()
+                            transcript_list = YouTubeTranscriptApi.list_transcripts(vid_id)
+                            try:
+                                # Tenta Português (Manual ou Automática)
+                                t = transcript_list.find_transcript(['pt']).fetch()
+                            except:
+                                # Se não tiver PT, tenta Inglês ou qualquer outra
+                                t = transcript_list.find_generated_transcripts().fetch()
+                            transcript_text = " ".join([i['text'] for i in t])
                         except:
-                            t = transcripts.find_generated_transcripts().fetch()
-                        
-                        full_text = " ".join([i['text'] for i in t])
-                        
-                        # IA criando o corte e as legendas
+                            transcript_text = ""
+
+                        # IA analisa o conteúdo
                         model = genai.GenerativeModel('gemini-1.5-flash')
-                        prompt_final = f"Baseado no texto: {full_text[:5000]}. Crie 2 roteiros de cortes de 30 segundos. Para cada um, defina: 1. Título impactante. 2. Legenda de abertura (Hook). 3. O texto exato que deve aparecer como legenda em destaque no centro da tela."
+                        
+                        if transcript_text:
+                            prompt_final = (
+                                f"Com base nesta transcrição: '{transcript_text[:5000]}', "
+                                f"crie 2 roteiros de cortes virais de 30-60s. Para cada corte, defina: \n"
+                                f"1. Título Impactante. \n"
+                                f"2. Gancho de Legenda (Hook). \n"
+                                f"3. O roteiro detalhado com marcações de [LEGENDA EM DESTAQUE] para as partes mais importantes."
+                            )
+                        else:
+                            # Plano B caso o YouTube bloqueie a legenda
+                            prompt_final = f"O vídeo {url_yt} está com legendas bloqueadas. Baseado no tema do vídeo, sugira 2 ideias de cortes virais e os roteiros que poderiam ser feitos para esse assunto."
+
                         res = model.generate_content(prompt_final)
                         st.markdown("---")
+                        st.success("Análise Concluída!")
                         st.markdown(res.text)
-                except Exception:
-                    st.error("Este vídeo não permite extração de áudio direta. Tente outro vídeo ou um link com legendas ativadas.")
+                    except Exception as e:
+                        st.error("Ocorreu um erro na análise. Tente outro vídeo ou um link com áudio mais claro.")
             else:
-                st.error("URL inválida.")
+                st.error("Link do YouTube inválido. Cole o link completo da barra de endereços.")
