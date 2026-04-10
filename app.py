@@ -77,23 +77,32 @@ else:
             img_url = f"https://image.pollinations.ai/prompt/{urllib.parse.quote(p_img)}?width=1024&height=1024&nologo=true&seed={seed}&model=flux"
             st.image(img_url, use_container_width=True)
 
-    # ABA 3: VÍDEOS
+    # ABA 3: VÍDEOS (VERSÃO CADEADO)
     with t3:
-        st.subheader("IA de Vídeo (Cenas Animadas)")
-        p_vid = st.text_input("Descreva o vídeo (em inglês para melhor resultado):")
+        st.subheader("🎥 Gerador de Vídeo IA")
+        p_vid = st.text_input("Descreva a cena (ex: Golden dragon flying, 4k):", key="v_input_final")
+        
         if st.button("🎬 Gerar Vídeo"):
-            with st.spinner("Renderizando..."):
+            with st.spinner("IA Processando... (Isso pode levar 30 segundos)"):
                 v_seed = random.randint(1, 9999)
-                # Adicionado parâmetro para tentar evitar o redirect
-                v_url = f"https://pollinations.ai/p/{urllib.parse.quote(p_vid)}?width=1280&height=720&model=video&seed={v_seed}&nofeed=true"
+                v_url = f"https://pollinations.ai/p/{urllib.parse.quote(p_vid)}?width=1280&height=720&model=video&seed={v_seed}"
                 
-                # Player de Vídeo com proteção
+                # Criamos um botão de download por cima para o usuário não se perder
+                st.markdown(f"""
+                    <div style="background: #1a1a1a; padding: 20px; border-radius: 15px; border: 1px solid #333; text-align: center;">
+                        <h4 style="color: #fff; margin-bottom: 15px;">Seu vídeo está sendo processado!</h4>
+                        <p style="font-size: 0.9em; color: #888;">Se a visualização abaixo falhar ou redirecionar, use o botão abaixo:</p>
+                        <a href="{v_url}" target="_blank" style="text-decoration: none;">
+                            <button style="background: #6366f1; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: bold;">
+                                📥 Baixar / Ver Vídeo em Nova Aba
+                            </button>
+                        </a>
+                    </div>
+                """, unsafe_allow_html=True)
+                
+                # Tentativa de embed com proteção máxima contra clique/redirecionamento
                 st.components.v1.html(f"""
-                    <div style="border-radius:15px; overflow:hidden; border:2px solid #6366f1;">
-                        <iframe src="{v_url}" width="100%" height="450" frameborder="0" allowfullscreen></iframe>
+                    <div style="pointer-events: none; border-radius:15px; overflow:hidden; border:2px solid #6366f1; margin-top: 20px;">
+                        <iframe src="{v_url}" width="100%" height="450" frameborder="0" style="pointer-events: auto;"></iframe>
                     </div>
                 """, height=500)
-                st.caption("Nota: Se o vídeo não carregar, clique no botão novamente para gerar uma nova variação.")
-
-st.markdown("---")
-st.caption("Vidiom AI v2.2 - Sistema de Inteligência Visual")
