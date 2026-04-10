@@ -4,50 +4,17 @@ import random
 from supabase import create_client, Client
 import google.generativeai as genai
 
-# --- 1. CONFIGURAÇÃO DE ESTILO "MINDVIDEO" (UI/UX) ---
+# --- 1. CONFIGURAÇÃO DE ESTILO "MINDVIDEO" ---
 st.set_page_config(page_title="Vidiom AI | Premium Studio", layout="wide", page_icon="🎬")
 
 st.markdown("""
     <style>
-    /* Estilo Global - Dark Mode Profundo */
     .stApp { background-color: #050505; color: #e0e0e0; }
-    
-    /* Sidebar Minimalista */
     [data-testid="stSidebar"] { background-color: #0a0a0a; border-right: 1px solid #1a1a1a; }
-    
-    /* Títulos Estilo Tech */
-    h1, h2, h3 { 
-        font-family: 'Inter', sans-serif; 
-        background: -webkit-linear-gradient(#fff, #888);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        letter-spacing: -1px;
-    }
-
-    /* Botões Premium (Gradiente MindVideo) */
-    .stButton>button {
-        width: 100%;
-        background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
-        color: white; border: none; padding: 12px;
-        border-radius: 12px; font-weight: 600;
-        transition: all 0.3s ease;
-    }
-    .stButton>button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 10px 20px rgba(99, 102, 241, 0.3);
-    }
-
-    /* Inputs e Cards */
-    .stTextInput>div>div>input {
-        background-color: #0f0f0f !important;
-        border: 1px solid #1a1a1a !important;
-        color: white !important;
-        border-radius: 12px !important;
-        padding: 15px !important;
-    }
-    
-    .stTabs [data-baseweb="tab"] { color: #888; }
-    .stTabs [data-baseweb="tab--active"] { color: #fff; border-bottom-color: #6366f1; }
+    h1, h2, h3 { font-family: 'Inter', sans-serif; background: -webkit-linear-gradient(#fff, #888); -webkit-background-clip: text; -webkit-text-fill-color: transparent; letter-spacing: -1px; }
+    .stButton>button { width: 100%; background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%); color: white; border: none; padding: 12px; border-radius: 12px; font-weight: 600; transition: all 0.3s ease; }
+    .stButton>button:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(99, 102, 241, 0.3); }
+    .stTextInput>div>div>input, .stTextArea>div>div>textarea { background-color: #0f0f0f !important; border: 1px solid #1a1a1a !important; color: white !important; border-radius: 12px !important; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -59,9 +26,8 @@ try:
     supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
     genai.configure(api_key=GEMINI_KEY)
 except:
-    st.error("Erro de conexão. Verifique suas Secrets no Streamlit.")
+    st.error("Erro de conexão. Verifique as chaves.")
 
-# --- 3. LÓGICA DE CRÉDITOS ---
 def sync_user(email_user):
     try:
         res = supabase.table("profiles").select("*").eq("email", email_user).execute()
@@ -72,59 +38,53 @@ def sync_user(email_user):
             return data.data[0]
     except: return {"email": email_user, "credits": "100 (Free)"}
 
-# --- 4. INTERFACE PRINCIPAL ---
+# --- 3. SIDEBAR ---
 with st.sidebar:
     st.markdown("### 🛰️ VIDIOM AI")
-    st.write("Studio de Criação Inteligente")
-    st.markdown("---")
     email = st.text_input("Acesse sua conta", placeholder="seu@email.com")
-    
     if email:
         user_data = sync_user(email)
         st.success(f"⚡ {user_data['credits']} Créditos")
-        st.markdown("---")
-        st.markdown("**Plano:** Professional")
-        if st.button("💎 Upgrade para Unlimited"):
-            st.info("Em breve: Integração com Stripe")
 
-# --- ÁREA DE TRABALHO ---
-st.title("Estúdio de Produção")
-st.write("Selecione a ferramenta para iniciar sua criação viral.")
+# --- 4. ÁREA DE TRABALHO ---
+st.title("Estúdio de Produção Premium")
 
 if not email:
     st.warning("⚠️ Digite seu e-mail na barra lateral para começar.")
 else:
-    tab1, tab2 = st.tabs(["🎥 Gerador de Script", "🖼️ Gerador de Imagem Ultra"])
+    tab1, tab2, tab3 = st.tabs(["✍️ Roteiro Viral", "🖼️ Imagem Ultra", "🎥 Vídeo Mágico"])
 
     with tab1:
-        st.markdown("### 📝 Criar Roteiro Viral")
-        tema = st.text_area("Sobre o que será o seu conteúdo?", placeholder="Ex: Um vídeo curto sobre como a IA está mudando o mercado de trabalho em 2026...")
+        st.markdown("### 📝 Criar Roteiro")
+        tema = st.text_area("Sobre o que será o vídeo?")
         if st.button("🚀 Gerar Roteiro"):
-            with st.spinner("O Gemini está arquitetando seu roteiro..."):
-                model = genai.GenerativeModel('gemini-pro')
-                prompt = f"Crie um roteiro para TikTok/Reels ultra engajador sobre: {tema}. Use ganchos fortes nos primeiros 3 segundos."
-                response = model.generate_content(prompt)
-                st.markdown("---")
-                st.markdown(response.text)
+            model = genai.GenerativeModel('gemini-pro')
+            response = model.generate_content(f"Roteiro viral sobre: {tema}")
+            st.write(response.text)
 
     with tab2:
-        st.markdown("### 🎨 Criação de Visual Premium")
-        img_desc = st.text_input("Descreva a cena (melhor em Inglês):", placeholder="Ex: Futuristic cinematic car, neon city background, 8k, hyper-realistic")
+        st.markdown("### 🎨 Visual Premium")
+        img_desc = st.text_input("Descreva a imagem (Inglês):")
+        if st.button("✨ Criar Imagem"):
+            seed = random.randint(1, 999999)
+            url_img = f"https://image.pollinations.ai/prompt/{urllib.parse.quote(img_desc)}?width=1024&height=1024&nologo=true&seed={seed}&model=flux"
+            st.image(url_img, use_container_width=True)
+
+    with tab3:
+        st.markdown("### 🎥 Gerador de Vídeo IA")
+        video_desc = st.text_input("Descreva o movimento do vídeo (ex: 'A futuristic car driving through a neon city at night'):")
         
-        if st.button("✨ Criar Obra de Arte"):
-            if img_desc:
-                with st.spinner("Gerando imagem com motor Flux..."):
-                    # Adicionando palavras-chave de qualidade
-                    premium_prompt = f"{img_desc}, 8k, cinematic, highly detailed, professional lighting, masterpiece"
-                    encoded_prompt = urllib.parse.quote(premium_prompt)
-                    seed = random.randint(1, 999999)
+        if st.button("🎬 Gerar Vídeo"):
+            if video_desc:
+                with st.spinner("A gerar o seu vídeo... Isso pode demorar até 30 segundos."):
+                    # O motor de vídeo funciona via Pollinations
+                    seed_v = random.randint(1, 999999)
+                    # Criamos a URL para o vídeo (utilizando o modelo de vídeo)
+                    video_url = f"https://pollinations.ai/p/{urllib.parse.quote(video_desc)}?width=1280&height=720&model=video&seed={seed_v}"
                     
-                    # URL do motor FLUX (Mais potente que o anterior)
-                    url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width=1024&height=1024&nologo=true&seed={seed}&model=flux"
-                    
-                    # Layout de exibição
                     st.markdown("---")
-                    st.image(url, use_container_width=True)
-                    st.markdown(f"📥 [Clique aqui para baixar a imagem em alta resolução]({url})")
+                    # Exibe o vídeo usando um player de HTML5
+                    st.video(video_url)
+                    st.markdown(f"📥 [Descarregar Vídeo]({video_url})")
             else:
-                st.error("Por favor, descreva o que você quer criar.")
+                st.error("Descreva o vídeo antes de gerar.")
