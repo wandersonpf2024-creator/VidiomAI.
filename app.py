@@ -1,108 +1,96 @@
 import streamlit as st
-import urllib.parse
-import random
-import re
 import google.generativeai as genai
-from youtube_transcript_api import YouTubeTranscriptApi
+import random
+import urllib.parse
+import re
 
-# --- 1. CONFIGURAÇÃO VISUAL (Vidiom AI Premium) ---
-st.set_page_config(page_title="Vidiom AI | Pro Studio", layout="wide", page_icon="🎬")
+# --- ESTÉTICA DE ELITE (CYBER-SaaS) ---
+st.set_page_config(page_title="VIDIOM AI | FIRST TO MARKET", layout="wide", page_icon="💎")
 
 st.markdown("""
     <style>
-    .stApp { background-color: #050505; color: #e0e0e0; }
-    h1 { background: -webkit-linear-gradient(#fff, #888); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: 800; }
-    .stButton>button { width: 100%; background: linear-gradient(135deg, #6366f1, #a855f7); color: white; border: none; padding: 12px; border-radius: 12px; font-weight: bold; transition: 0.3s; }
-    .stButton>button:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(99, 102, 241, 0.4); }
-    .stTextInput>div>div>input { background-color: #0f0f0f !important; border: 1px solid #333 !important; color: white !important; }
-    .result-card { background: #0a0a0a; border: 1px solid #1a1a1a; padding: 20px; border-radius: 15px; border-left: 5px solid #6366f1; margin-top: 15px; }
+    .stApp { background: #020202; color: #ffffff; }
+    .main-header { font-size: 3rem; font-weight: 800; letter-spacing: -2px; color: #fff; margin-bottom: 0; }
+    .accent { color: #6366f1; }
+    .stTabs [data-baseweb="tab-list"] { gap: 8px; }
+    .stTabs [data-baseweb="tab"] { background: #111; border: 1px solid #222; border-radius: 8px 8px 0 0; padding: 10px 20px; }
+    .stTabs [aria-selected="true"] { background: #6366f1 !important; border: 1px solid #6366f1 !important; }
+    div[data-testid="stStatusWidget"] { background: #0a0a0a; border: 1px solid #222; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. MOTOR DE IA ---
-def init_gemini():
+# --- BACKEND DE INTELIGÊNCIA ---
+def setup_engine():
     try:
-        if "GEMINI_API_KEY" in st.secrets:
-            genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-            return genai.GenerativeModel('gemini-1.5-flash')
-    except: return None
-    return None
+        api_key = st.secrets["GEMINI_API_KEY"]
+        genai.configure(api_key=api_key)
+        # Nível Máximo: Pro para lógica complexa
+        return genai.GenerativeModel('gemini-1.5-pro')
+    except:
+        return None
 
-ia_model = init_gemini()
+engine = setup_engine()
 
-def get_yt_id(url):
-    pattern = r'(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|\S*?[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})'
-    match = re.search(pattern, url)
-    return match.group(1) if match else None
-
-# --- 3. INTERFACE ---
-st.title("🛰️ VIDIOM AI - Estúdio 2026")
+# --- INTERFACE ---
+st.markdown("<h1 class='main-header'>VIDIOM <span class='accent'>AI</span></h1>", unsafe_allow_html=True)
+st.markdown("<p style='color:#666; margin-bottom:30px;'>ESTRATÉGIA DE RETENÇÃO E GERAÇÃO S-TIER</p>", unsafe_allow_html=True)
 
 with st.sidebar:
-    st.subheader("Painel de Controle")
-    user_email = st.text_input("Seu E-mail")
-    if user_email: st.success("🚀 Plano Pro Ativo")
+    st.markdown("### 🛠️ CONFIGURAÇÕES")
+    token = st.text_input("CHAVE DE ACESSO", type="password")
+    st.markdown("---")
+    st.info("SISTEMA DE GERAÇÃO ULTRA-FAST ATIVO")
 
-if not user_email:
-    st.info("👋 Bem-vindo! Insira seu e-mail para desbloquear as ferramentas de IA.")
+if not token:
+    st.warning("🔐 Digite o Token para acessar o motor de elite.")
 else:
-    t1, t2, t3 = st.tabs(["✂️ Cortes por Link", "🎨 Gerador de Imagem", "🎥 Gerador de Vídeo"])
+    tab1, tab2, tab3 = st.tabs(["🧬 CORTES VIRAIS", "🖼️ IMAGENS PREMIUM", "🎬 VÍDEO CINEMÁTICO"])
 
-    # ABA 1: CORTES
-    with t1:
-        st.subheader("Roteirista de Cortes Virais")
-        url_link = st.text_input("Cole o link (YouTube, TikTok, Instagram):", key="link_corte")
-        if st.button("🧬 Analisar e Criar Corte"):
-            with st.spinner("Analisando conteúdo..."):
-                transcript = ""
-                yid = get_yt_id(url_link)
-                if yid:
-                    try:
-                        t_data = YouTubeTranscriptApi.get_transcript(yid, languages=['pt', 'en'])
-                        transcript = " ".join([i['text'] for i in t_data])
-                    except: transcript = "Link externo (Rede Social)."
-
-                if ia_model:
-                    prompt = f"Crie 2 roteiros de cortes para: {url_link}. Contexto: {transcript[:2000]}. Foque em: Título, Gancho e Legendas dinâmicas."
-                    res = ia_model.generate_content(prompt)
-                    st.markdown(f'<div class="result-card">{res.text}</div>', unsafe_allow_html=True)
-                else: st.error("Erro na API do Google.")
-
-    # ABA 2: IMAGENS
-    with t2:
-        st.subheader("IA de Imagem (Flux Model)")
-        p_img = st.text_input("Descreva a imagem:")
-        if st.button("🎨 Criar Imagem"):
-            seed = random.randint(1, 99999)
-            img_url = f"https://image.pollinations.ai/prompt/{urllib.parse.quote(p_img)}?width=1024&height=1024&nologo=true&seed={seed}&model=flux"
-            st.image(img_url, use_container_width=True)
-
-    # ABA 3: VÍDEOS (VERSÃO CADEADO)
-    with t3:
-        st.subheader("🎥 Gerador de Vídeo IA")
-        p_vid = st.text_input("Descreva a cena (ex: Golden dragon flying, 4k):", key="v_input_final")
+    # ABA 1: O NOSSO DIFERENCIAL (A IDEIA QUE VAI VENCER)
+    with tab1:
+        st.markdown("### 🧪 ANÁLISE DE RETENÇÃO PSICOLÓGICA")
+        target_link = st.text_input("LINK DO CONTEÚDO (Youtube/TikTok/Insta/Kwai)")
         
-        if st.button("🎬 Gerar Vídeo"):
-            with st.spinner("IA Processando... (Isso pode levar 30 segundos)"):
-                v_seed = random.randint(1, 9999)
+        if st.button("EXTRAIR ESTRATÉGIA"):
+            if engine:
+                with st.status("Executando Engenharia Reversa do Algoritmo...", expanded=True):
+                    prompt = f"""
+                    Aja como um Diretor de Viralização de alto nível. Analise: {target_link}.
+                    Sua missão é criar 2 cortes que forcem o usuário a assistir até o fim.
+                    Entrega:
+                    1. GANCHO DE IMPACTO (O que falar nos primeiros 2 segundos).
+                    2. ROTEIRO DE EDIÇÃO (Onde colocar B-roll, zoom e efeitos).
+                    3. TEXTO DE LEGENDA DINÂMICA (Estilo Alex Hormozi).
+                    Seja agressivo na persuasão.
+                    """
+                    response = engine.generate_content(prompt)
+                    st.write(response.text)
+            else:
+                st.error("ERRO DE API: VERIFIQUE SUA CHAVE NO STREAMLIT.")
+
+    # ABA 2: IMAGEM (FLUX ENGINE)
+    with tab2:
+        st.markdown("### 🎨 GERAÇÃO VISUAL")
+        p_img = st.text_input("PROMPT PARA IMAGEM (ALTA FIDELIDADE)")
+        if st.button("GERAR ARTE"):
+            seed = random.randint(100, 99999)
+            # Flux é o modelo que os profissionais usam agora
+            img_url = f"https://image.pollinations.ai/prompt/{urllib.parse.quote(p_img)}?width=1024&height=1024&nologo=true&seed={seed}&model=flux"
+            st.image(img_url, caption="RENDER FINALIZADO")
+
+    # ABA 3: VÍDEO (REPLICATE-BASED)
+    with tab3:
+        st.markdown("### 🎥 GERAÇÃO DE MOVIMENTO")
+        p_vid = st.text_input("PROMPT PARA VÍDEO (USE INGLÊS PARA MÁXIMA PERFORMANCE)")
+        
+        if st.button("RENDERIZAR VÍDEO"):
+            with st.spinner("PROCESSANDO FRAMES..."):
+                v_seed = random.randint(100, 9999)
                 v_url = f"https://pollinations.ai/p/{urllib.parse.quote(p_vid)}?width=1280&height=720&model=video&seed={v_seed}"
                 
-                # Criamos um botão de download por cima para o usuário não se perder
-                st.markdown(f"""
-                    <div style="background: #1a1a1a; padding: 20px; border-radius: 15px; border: 1px solid #333; text-align: center;">
-                        <h4 style="color: #fff; margin-bottom: 15px;">Seu vídeo está sendo processado!</h4>
-                        <p style="font-size: 0.9em; color: #888;">Se a visualização abaixo falhar ou redirecionar, use o botão abaixo:</p>
-                        <a href="{v_url}" target="_blank" style="text-decoration: none;">
-                            <button style="background: #6366f1; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: bold;">
-                                📥 Baixar / Ver Vídeo em Nova Aba
-                            </button>
-                        </a>
-                    </div>
-                """, unsafe_allow_html=True)
-                
-                # Tentativa de embed com proteção máxima contra clique/redirecionamento
-                st.components.v1.html(f"""
-                    <div style="pointer-events: none; border-radius:15px; overflow:hidden; border:2px solid #6366f1; margin-top: 20px;">
-                        <iframe src="{v_url}" width="100%" height="450" frameborder="0" style="pointer-events: auto;"></iframe>
-                    </div>
-                """, height=500)
+                # PROTEÇÃO ANTI-REDIRECIONAMENTO: Player Nativo Streamlit
+                st.markdown(f"**LINK DO RENDER:** [DOWNLOAD MP4]({v_url})")
+                st.video(v_url) 
+
+st.markdown("---")
+st.markdown("<p style='text-align:center; color:#333;'>VIDIOM AI © 2026 - TECNOLOGIA EXCLUSIVA</p>", unsafe_allow_html=True)
