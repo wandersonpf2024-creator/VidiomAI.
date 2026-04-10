@@ -1,32 +1,28 @@
-import streamlit as st
-import urllib.parse
-import random
+with tab2:
+        st.subheader("🎨 Gerador de Arte Visual")
+        img_desc = st.text_input("O que você quer criar?", placeholder="Ex: Futuristic city neon lights")
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            gerar_ia = st.button("🚀 Gerar com IA")
+        with col2:
+            gerar_foto = st.button("📸 Buscar Foto Real")
 
-# Tenta importar o que falta
-try:
-    from supabase import create_client, Client
-    import google.generativeai as genai
-except:
-    st.error("Instalando dependências... Aguarde um instante.")
-
-st.set_page_config(page_title="Vidiom AI", layout="wide")
-
-# Interface Simples para Teste de Imagem
-st.title("🎨 Gerador de Imagem Ultra")
-
-img_desc = st.text_input("Descreve a tua imagem (ex: Neon city)")
-
-if st.button("🚀 Gerar Agora"):
-    if img_desc:
-        with st.spinner("A criar..."):
-            # Criamos o link da imagem
-            seed = random.randint(1, 99999)
-            prompt_limpo = urllib.parse.quote(img_desc)
-            url_final = f"https://image.pollinations.ai/prompt/{prompt_limpo}?width=1024&height=1024&nologo=true&seed={seed}"
-            
-            # Comando forçado para exibir
-            st.markdown(f"### Resultado:")
-            st.image(url_final, use_container_width=True)
-            st.write(f"Link da imagem: {url_final}")
-    else:
-        st.warning("Escreve algo antes de clicar.")
+        if gerar_ia or gerar_foto:
+            if img_desc:
+                with st.spinner("Processando imagem..."):
+                    # Limpa o texto para o link não quebrar
+                    prompt_formatado = img_desc.replace(" ", ",") 
+                    
+                    if gerar_ia:
+                        # Usando um link mais simples e direto
+                        url = f"https://image.pollinations.ai/prompt/{prompt_formatado}"
+                    else:
+                        # Opção de foto real caso a IA falhe
+                        url = f"https://source.unsplash.com/featured/?{prompt_formatado}"
+                    
+                    # Exibe a imagem de forma garantida usando HTML
+                    st.markdown(f'<img src="{url}" width="100%" style="border-radius:15px; border: 2px solid #00f2fe;">', unsafe_allow_html=True)
+                    st.write(f"Link para download: [Clique aqui]({url})")
+            else:
+                st.error("Escreva algo no campo de texto!")
