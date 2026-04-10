@@ -1,20 +1,24 @@
 import streamlit as st
 import urllib.parse
 import random
+import re
 from supabase import create_client, Client
 import google.generativeai as genai
+from youtube_transcript_api import YouTubeTranscriptApi
 
-# --- 1. CONFIGURAÇÃO DE ESTILO "MINDVIDEO" ---
-st.set_page_config(page_title="Vidiom AI | Premium Studio", layout="wide", page_icon="🎬")
+# --- 1. CONFIGURAÇÃO DE ESTILO "DARK PREMIUM" ---
+st.set_page_config(page_title="Vidiom AI | Pro Studio", layout="wide", page_icon="🎬")
 
 st.markdown("""
     <style>
     .stApp { background-color: #050505; color: #e0e0e0; }
     [data-testid="stSidebar"] { background-color: #0a0a0a; border-right: 1px solid #1a1a1a; }
-    h1, h2, h3 { font-family: 'Inter', sans-serif; background: -webkit-linear-gradient(#fff, #888); -webkit-background-clip: text; -webkit-text-fill-color: transparent; letter-spacing: -1px; }
-    .stButton>button { width: 100%; background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%); color: white; border: none; padding: 12px; border-radius: 12px; font-weight: 600; transition: all 0.3s ease; }
-    .stButton>button:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(99, 102, 241, 0.3); }
-    .stTextInput>div>div>input, .stTextArea>div>div>textarea { background-color: #0f0f0f !important; border: 1px solid #1a1a1a !important; color: white !important; border-radius: 12px !important; }
+    h1, h2, h3 { font-family: 'Inter', sans-serif; background: -webkit-linear-gradient(#fff, #bbb); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: 800; }
+    .stButton>button { width: 100%; background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%); color: white; border: none; padding: 15px; border-radius: 12px; font-weight: bold; transition: 0.3s; }
+    .stButton>button:hover { transform: scale(1.02); box-shadow: 0 8px 15px rgba(99, 102, 241, 0.4); }
+    .stTextInput>div>div>input, .stTextArea>div>div>textarea { background-color: #0f0f0f !important; border: 1px solid #222 !important; color: white !important; border-radius: 10px !important; }
+    .stTabs [data-baseweb="tab"] { color: #777; font-size: 16px; }
+    .stTabs [data-baseweb="tab--active"] { color: #fff; border-bottom: 2px solid #6366f1; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -25,8 +29,14 @@ try:
     GEMINI_KEY = st.secrets["GEMINI_API_KEY"]
     supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
     genai.configure(api_key=GEMINI_KEY)
-except:
-    st.error("Erro de conexão. Verifique as chaves.")
+except Exception as e:
+    st.error("Erro nas Secrets. Verifique as chaves no painel do Streamlit.")
+
+# --- 3. FUNÇÕES ---
+def get_video_id(url):
+    pattern = r'(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|\S*?[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})'
+    match = re.search(pattern, url)
+    return match.group(1) if match else None
 
 def sync_user(email_user):
     try:
@@ -36,55 +46,82 @@ def sync_user(email_user):
             new_user = {"email": email_user, "credits": 100}
             data = supabase.table("profiles").insert(new_user).execute()
             return data.data[0]
-    except: return {"email": email_user, "credits": "100 (Free)"}
+    except: return {"email": email_user, "credits": 100}
 
-# --- 3. SIDEBAR ---
+# --- 4. INTERFACE ---
 with st.sidebar:
-    st.markdown("### 🛰️ VIDIOM AI")
-    email = st.text_input("Acesse sua conta", placeholder="seu@email.com")
+    st.title("🛰️ VIDIOM AI")
+    email = st.text_input("Seu E-mail", placeholder="exemplo@email.com")
     if email:
-        user_data = sync_user(email)
-        st.success(f"⚡ {user_data['credits']} Créditos")
+        u = sync_user(email)
+        st.success(f"⚡ {u['credits']} Créditos")
+    st.markdown("---")
+    st.write("Versão 2.0 - Premium")
 
-# --- 4. ÁREA DE TRABALHO ---
-st.title("Estúdio de Produção Premium")
+st.title("Estúdio de Criação Viral")
 
 if not email:
-    st.warning("⚠️ Digite seu e-mail na barra lateral para começar.")
+    st.info("👋 Digite seu e-mail para acessar o painel.")
 else:
-    tab1, tab2, tab3 = st.tabs(["✍️ Roteiro Viral", "🖼️ Imagem Ultra", "🎥 Vídeo Mágico"])
+    tab1, tab2, tab3, tab4 = st.tabs(["✍️ Roteiros", "🖼️ Imagens", "🎥 Vídeos", "📺 YouTube para Shorts"])
 
+    # TAB 1: ROTEIROS
     with tab1:
-        st.markdown("### 📝 Criar Roteiro")
-        tema = st.text_area("Sobre o que será o vídeo?")
-        if st.button("🚀 Gerar Roteiro"):
-            model = genai.GenerativeModel('gemini-pro')
-            response = model.generate_content(f"Roteiro viral sobre: {tema}")
-            st.write(response.text)
+        st.subheader("Gerador de Scripts Virais")
+        prompt_video = st.text_area("Sobre o que é o vídeo?")
+        if st.button("🚀 Criar Roteiro"):
+            model = genai.GenerativeModel('gemini-1.5-flash')
+            res = model.generate_content(f"Crie um roteiro de 60s para Reels/TikTok sobre {prompt_video}. Inclua sugestões de legenda de tela.")
+            st.markdown(res.text)
 
+    # TAB 2: IMAGENS (FLUX MOTOR)
     with tab2:
-        st.markdown("### 🎨 Visual Premium")
-        img_desc = st.text_input("Descreva a imagem (Inglês):")
-        if st.button("✨ Criar Imagem"):
-            seed = random.randint(1, 999999)
-            url_img = f"https://image.pollinations.ai/prompt/{urllib.parse.quote(img_desc)}?width=1024&height=1024&nologo=true&seed={seed}&model=flux"
-            st.image(url_img, use_container_width=True)
+        st.subheader("IA de Imagem Ultra-Realista")
+        desc_img = st.text_input("O que a IA deve desenhar? (Em Inglês funciona melhor)")
+        if st.button("🎨 Gerar Imagem"):
+            with st.spinner("Desenhando..."):
+                seed = random.randint(1, 100000)
+                # Otimização automática de prompt
+                full_p = urllib.parse.quote(f"{desc_img}, cinematic lighting, 8k, hyper-realistic, masterpiece")
+                url = f"https://image.pollinations.ai/prompt/{full_p}?width=1024&height=1024&nologo=true&seed={seed}&model=flux"
+                st.image(url)
+                st.markdown(f"[📥 Baixar Imagem]({url})")
 
+    # TAB 3: VÍDEOS
     with tab3:
-        st.markdown("### 🎥 Gerador de Vídeo IA")
-        video_desc = st.text_input("Descreva o movimento do vídeo (ex: 'A futuristic car driving through a neon city at night'):")
-        
-        if st.button("🎬 Gerar Vídeo"):
-            if video_desc:
-                with st.spinner("A gerar o seu vídeo... Isso pode demorar até 30 segundos."):
-                    # O motor de vídeo funciona via Pollinations
-                    seed_v = random.randint(1, 999999)
-                    # Criamos a URL para o vídeo (utilizando o modelo de vídeo)
-                    video_url = f"https://pollinations.ai/p/{urllib.parse.quote(video_desc)}?width=1280&height=720&model=video&seed={seed_v}"
-                    
-                    st.markdown("---")
-                    # Exibe o vídeo usando um player de HTML5
-                    st.video(video_url)
-                    st.markdown(f"📥 [Descarregar Vídeo]({video_url})")
+        st.subheader("Gerador de Vídeo IA")
+        desc_vid = st.text_input("Descreva o movimento do vídeo:")
+        if st.button("🎬 Gerar Clipe"):
+            with st.spinner("Animando..."):
+                v_url = f"https://pollinations.ai/p/{urllib.parse.quote(desc_vid)}?width=1280&height=720&model=video&seed={random.randint(1,999)}"
+                st.components.v1.html(f'<iframe src="{v_url}" width="100%" height="450" style="border:2px solid #6366f1; border-radius:15px;"></iframe>', height=500)
+
+    # TAB 4: YOUTUBE PARA VIRAL (O SEU DIFERENCIAL)
+    with tab4:
+        st.subheader("Cortes Automáticos de YouTube")
+        url_yt = st.text_input("Link do Vídeo do YouTube:")
+        if st.button("🧬 Analisar Vídeo"):
+            vid_id = get_video_id(url_yt)
+            if vid_id:
+                try:
+                    with st.spinner("Capturando áudio e criando legendas..."):
+                        # Tenta capturar qualquer legenda disponível
+                        transcripts = YouTubeTranscriptApi.list_transcripts(vid_id)
+                        try:
+                            # Tenta português ou então a primeira disponível
+                            t = transcripts.find_transcript(['pt', 'en']).fetch()
+                        except:
+                            t = transcripts.find_generated_transcripts().fetch()
+                        
+                        full_text = " ".join([i['text'] for i in t])
+                        
+                        # IA criando o corte e as legendas
+                        model = genai.GenerativeModel('gemini-1.5-flash')
+                        prompt_final = f"Baseado no texto: {full_text[:5000]}. Crie 2 roteiros de cortes de 30 segundos. Para cada um, defina: 1. Título impactante. 2. Legenda de abertura (Hook). 3. O texto exato que deve aparecer como legenda em destaque no centro da tela."
+                        res = model.generate_content(prompt_final)
+                        st.markdown("---")
+                        st.markdown(res.text)
+                except Exception:
+                    st.error("Este vídeo não permite extração de áudio direta. Tente outro vídeo ou um link com legendas ativadas.")
             else:
-                st.error("Descreva o vídeo antes de gerar.")
+                st.error("URL inválida.")
