@@ -95,12 +95,29 @@ else:
                 url_final = f"https://image.pollinations.ai/prompt/{urllib.parse.quote(prompt_img)}?width=1024&height=1024&nologo=true&seed={seed}&model=flux"
                 st.image(url_final)
 
-    # --- ABA 3: VÍDEOS ---
+    # --- ABA 3: VÍDEO POR PROMPT (VERSÃO FIXA) ---
     with tab3:
-        st.subheader("Gerar Vídeo com IA")
-        prompt_vid = st.text_input("Descreva o movimento da cena:")
-        if st.button("🎥 Criar Clipe"):
-            with st.spinner("Animando..."):
-                v_seed = random.randint(1, 1000)
-                v_url = f"https://pollinations.ai/p/{urllib.parse.quote(prompt_vid)}?width=1280&height=720&model=video&seed={v_seed}"
-                st.components.v1.html(f'<iframe src="{v_url}" width="100%" height="450" style="border:2px solid #6366f1; border-radius:15px;"></iframe>', height=500)
+        st.subheader("🎥 Gerador de Clipes Animados")
+        prompt_vid = st.text_input("Descreva a cena animada:", key="vid_prompt_novo")
+        
+        if st.button("🎬 Animar Cena"):
+            with st.spinner("Renderizando vídeo..."):
+                v_seed = random.randint(1, 9999)
+                safe_vid_prompt = urllib.parse.quote(prompt_vid)
+                # Link direto para o player
+                v_url = f"https://pollinations.ai/p/{safe_vid_prompt}?width=1280&height=720&model=video&seed={v_seed}"
+                
+                # O segredo está no 'sandbox' e no estilo para não redirecionar
+                st.components.v1.html(f"""
+                    <div style="width:100%; height:450px; overflow:hidden; border-radius:15px; border:2px solid #6366f1;">
+                        <iframe 
+                            src="{v_url}" 
+                            width="100%" 
+                            height="100%" 
+                            style="border:none;" 
+                            sandbox="allow-scripts allow-same-origin"
+                            allowfullscreen>
+                        </iframe>
+                    </div>
+                """, height=500)
+                st.info("Aguarde cerca de 20 segundos. Se o site tentar 'fugir', o navegador vai bloqueá-lo e manter o vídeo aqui.")
