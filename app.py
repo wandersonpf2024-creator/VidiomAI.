@@ -4,63 +4,114 @@ import re
 from groq import Groq
 from moviepy.video.io.VideoFileClip import VideoFileClip
 
-# --- CONFIGURAÇÃO ESTÉTICA (CSS MODERNO) ---
-st.set_page_config(page_title="VIDIOM AI | Editor Pro", layout="wide")
+# --- CONFIGURAÇÃO ESTÉTICA (CSS CENTRALIZADO E MODERNO) ---
+st.set_page_config(page_title="VIDIOM AI | Pro Editor", layout="wide")
 
+# CSS para forçar o layout centralizado e o visual Dark Pro
 st.markdown("""
     <style>
-    /* 1. Fundo e Fontes */
-    .stApp { background-color: #05070a; color: #e2e8f0; }
+    /* 1. Fundo Deep Dark e Reset de Margens */
+    .stApp {
+        background-color: #05070a;
+        color: #e2e8f0;
+    }
     
-    /* 2. Barra Superior e Títulos */
-    .main-title { font-size: 28px; font-weight: 700; margin-bottom: 20px; color: #ffffff; }
-    
-    /* 3. Estilização do File Uploader (Área de Drag & Drop) */
-    div[data-testid="stFileUploader"] {
-        background-color: #0f172a;
-        border: 1px solid #1e293b;
-        border-radius: 12px;
-        padding: 30px;
+    /* 2. Centralização Absoluta do Conteúdo Main */
+    .main .block-container {
+        max-width: 800px; /* Largura fixa no centro */
+        padding-top: 2rem;
+        padding-bottom: 2rem;
+        margin: 0 auto; /* Centraliza a coluna */
     }
 
-    /* 4. Botão Converter Estilo "Glow" */
+    /* 3. Título Centralizado */
+    .main-title {
+        font-size: 32px;
+        font-weight: 800;
+        text-align: center;
+        margin-bottom: 30px;
+        color: #ffffff;
+        font-family: 'Inter', sans-serif;
+    }
+    
+    /* 4. Estilização do File Uploader Centralizado */
+    div[data-testid="stFileUploader"] {
+        background-color: #0f172a;
+        border: 2px dashed #334155;
+        border-radius: 16px;
+        padding: 40px;
+        text-align: center;
+    }
+    div[data-testid="stFileUploader"]>section>button {
+        background-color: #1e293b;
+        color: white;
+        border-radius: 8px;
+    }
+
+    /* 5. Player de Vídeo Centralizado e Arredondado */
+    .stVideo {
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    }
+
+    /* 6. Inputs e Sliders Centralizados */
+    .stTextArea textarea {
+        background-color: #0f172a;
+        border: 1px solid #1e293b;
+        color: white;
+        border-radius: 12px;
+        padding: 15px;
+    }
+    
+    /* Cores do Slider */
+    .stSlider > div > div > div > div {
+        background-color: #6366f1;
+    }
+    .stSlider [data-baseweb="slider"] div {
+        background-color: #6366f1;
+    }
+
+    /* 7. Botões de Legenda (Cards) Centralizados */
+    div[data-testid="column"] button {
+        background-color: #0f172a;
+        color: #94a3b8;
+        border: 1px solid #1e293b;
+        border-radius: 10px;
+        padding: 10px;
+        font-size: 14px;
+        width: 100%;
+        transition: 0.2s;
+    }
+    div[data-testid="column"] button:hover {
+        border-color: #6366f1;
+        color: white;
+        background-color: #131a2b;
+    }
+
+    /* 8. Botão Converter "Glow Premium" Centralizado */
     .stButton>button {
         width: 100%;
-        background: #ffffff;
-        color: #000000 !important;
+        background: linear-gradient(90deg, #6366f1 0%, #a855f7 100%);
+        color: white !important;
         border-radius: 50px;
-        padding: 12px 24px;
+        padding: 16px 30px;
         font-weight: 700;
+        font-size: 18px;
         border: none;
         transition: 0.3s;
         text-transform: uppercase;
         letter-spacing: 1px;
+        margin-top: 20px;
     }
     .stButton>button:hover {
-        background: #f8fafc;
-        transform: translateY(-2px);
-        box-shadow: 0 10px 20px -10px rgba(255, 255, 255, 0.3);
+        transform: translateY(-3px);
+        box-shadow: 0 10px 30px rgba(168, 85, 247, 0.5);
     }
 
-    /* 5. Seletor de Legenda (Cards) */
-    .stSelectbox div[data-baseweb="select"] {
-        background-color: #1e293b;
-        border-radius: 8px;
-    }
-    
-    /* 6. Inputs de Texto e Sliders */
-    .stTextArea textarea { background-color: #0f172a; border: 1px solid #334155; color: white; border-radius: 10px; }
-    .stSlider > div > div > div > div { background-color: #6366f1; }
-    
-    /* Estilo para as opções de legenda mockadas */
-    .legenda-box {
-        background: #1e293b;
-        border: 1px solid #334155;
-        border-radius: 8px;
-        padding: 10px;
-        text-align: center;
-        font-size: 12px;
-        cursor: pointer;
+    /* Fix para remover o padding padrão do Streamlit nas colunas */
+    [data-testid="column"] {
+        padding: 0 5px !important;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -69,70 +120,83 @@ st.markdown("""
 def processar_corte(video_path, start, end):
     output = "corte_final.mp4"
     try:
+        # Carregamento 'lazy' para economizar memória no plano grátis
         with VideoFileClip(video_path, audio=True).subclip(start, end) as video:
-            video.write_videofile(output, codec="libx264", audio_codec="aac", temp_audiofile='temp-audio.m4a', remove_temp=True, logger=None)
+            # Reduzimos threads para não travar o servidor gratuito
+            video.write_videofile(output, codec="libx264", audio_codec="aac", temp_audiofile='temp-audio.m4a', remove_temp=True, logger=None, threads=1)
         return output
     except Exception as e:
-        st.error(f"Erro: {e}")
+        st.error(f"Erro no processamento: {e}")
         return None
 
-# --- INTERFACE ---
+# --- INTERFACE (LAYOUT CENTRALIZADO) ---
 st.markdown('<div class="main-title">🎬 Converta vídeos longos em vídeos curtos</div>', unsafe_allow_html=True)
 
-# Container Principal
-with st.container():
-    # Topo: Upload simplificado
-    video_file = st.file_uploader("", type=["mp4", "mov"])
+# 1. Área de Upload (Centralizada)
+video_file = st.file_uploader("", type=["mp4", "mov"])
+
+if video_file:
+    # Salva temporariamente
+    with open("video_vidiom.mp4", "wb") as f:
+        f.write(video_file.getbuffer())
     
-    if video_file:
-        with open("video_vidiom.mp4", "wb") as f:
-            f.write(video_file.getbuffer())
-        
-        with VideoFileClip("video_vidiom.mp4") as v:
-            duracao_max = int(v.duration)
+    with VideoFileClip("video_vidiom.mp4") as v:
+        duracao_max = int(v.duration)
 
-        # PLAYER DE VÍDEO (Centralizado como na imagem)
-        st.video("video_vidiom.mp4")
+    st.write("---")
 
-        st.write("---")
-        
-        # ÁREA DE SELEÇÃO
-        st.markdown("### 🎞️ Selecione a parte que deseja converter")
-        tempo = st.slider("", 0, duracao_max, (0, min(60, duracao_max)))
-        st.caption(f"Duração selecionada: {tempo[1] - tempo[0]} segundos")
+    # 2. Player de Vídeo (Centralizado)
+    st.video("video_vidiom.mp4")
 
-        st.write("---")
+    st.write("---")
+    
+    # 3. Área de Seleção (Timeline)
+    st.markdown("### 🎞️ Selecione a parte que deseja converter")
+    tempo = st.slider("", 0, duracao_max, (0, min(60, duracao_max)))
+    st.caption(f"Duração selecionada: {tempo[1] - tempo[0]} segundos")
 
-        # MODELOS DE LEGENDA (Visual)
-        st.markdown("### ✍️ Selecionar modelo de legenda")
-        cols = st.columns(6)
-        with cols[0]: st.button("Default", key="l1")
-        with cols[1]: st.button("Glow", key="l2")
-        with cols[2]: st.button("Impact", key="l3")
-        with cols[3]: st.button("Cyber", key="l4")
-        with cols[4]: st.button("Retro", key="l5")
-        with cols[5]: st.button("Clean", key="l6")
+    st.write("---")
 
-        st.write("---")
+    # 4. Modelos de Legenda (Cards Visuais)
+    st.markdown("### ✍️ Selecionar modelo de legenda")
+    cols_l1 = st.columns(3)
+    with cols_l1[0]: st.button("Padrão", key="l1")
+    with cols_l1[1]: st.button("Glow Ultra", key="l2")
+    with cols_l1[2]: st.button("Impact Pro", key="l3")
+    
+    cols_l2 = st.columns(3)
+    with cols_l2[0]: st.button("Cyberpunk", key="l4")
+    with cols_l2[1]: st.button("Minimalist", key="l5")
+    with cols_l2[2]: st.button("Retro Wave", key="l6")
 
-        # DURAÇÃO E CONVERSÃO
-        col_txt, col_btn = st.columns([2, 1])
-        
-        with col_txt:
-            contexto = st.text_area("O que acontece no vídeo? (IA Context)", placeholder="Explique para a IA o que focar...")
-        
-        with col_btn:
-            st.write("##") # Espaçador
-            if st.button("✨ Converter"):
-                with st.status("Gerando seu corte viral...", expanded=True):
-                    final_clip = processar_corte("video_vidiom.mp4", tempo[0], tempo[1])
-                    if final_clip:
-                        st.success("Pronto!")
-                        with open(final_clip, "rb") as f:
-                            st.download_button("📥 BAIXAR AGORA", f, file_name="vidiom_pro.mp4")
-    else:
-        st.image("https://img.freepik.com/free-vector/upload-concept-illustration_114360-1205.jpg", width=200)
-        st.info("Arraste um vídeo MP4 para começar a mágica.")
+    st.write("---")
 
-# Rodapé
-st.markdown("<br><br><center><small>VIDIOM AI - O futuro da edição automática</small></center>", unsafe_allow_html=True)
+    # 5. Duração e Contexto IA
+    st.markdown("### 🤖 O que acontece no vídeo? (Contexto IA)")
+    contexto = st.text_area("", placeholder="Explique para a IA qual o clímax ou o momento viral deste trecho...")
+    
+    st.write("---")
+
+    # 6. Botão Converter Premium (Centralizado e Gradient)
+    if st.button("✨ Converter para Vídeo Curto"):
+        if not contexto:
+            st.warning("⚠️ Adicione um contexto para a IA validar o seu corte!")
+        else:
+            with st.status("Gerando seu corte viral...", expanded=True):
+                final_clip = processar_corte("video_vidiom.mp4", tempo[0], tempo[1])
+                if final_clip:
+                    st.success("Corte concluído com sucesso!")
+                    with open(final_clip, "rb") as f:
+                        st.download_button("📥 BAIXAR AGORA", f, file_name="vidiom_pro_clip.mp4")
+                        
+            # Limpeza
+            if os.path.exists("video_vidiom.mp4"): os.remove("video_vidiom.mp4")
+            if os.path.exists("corte_final.mp4"): os.remove("corte_final.mp4")
+
+else:
+    # Estado inicial centralizado
+    st.markdown("<br><br>", unsafe_allow_html=True)
+    st.info("Arraste e solte seu vídeo MP4/MOV acima para começar a mágica.")
+
+# Rodapé Centralizado
+st.markdown("<br><br><center><small>VIDIOM AI v16.0 - O futuro da edição automática</small></center>", unsafe_allow_html=True)
