@@ -1,172 +1,86 @@
 import streamlit as st
 import os
+import requests # Necessário para conectar com as APIs externas
 
-# --- 1. CONFIGURAÇÃO DE LAYOUT CINEMATOGRÁFICO ---
-st.set_page_config(page_title="VIDIOM.AI Pro", layout="wide", initial_sidebar_state="collapsed")
+# --- 1. CONFIGURAÇÃO DA PÁGINA (ESTILO MINDVIDEO) ---
+st.set_page_config(page_title="VIDIOM AI | AI Engine", layout="wide")
 
 st.markdown("""
     <style>
-    /* FUNDO PRETO ABSOLUTO E REMOÇÃO DE PADRÕES */
-    .stApp { background-color: #080808; color: #ffffff; }
-    header, [data-testid="stHeader"] { display: none !important; }
-    .stMainBlockContainer { padding: 0px !important; max-width: 100% !important; }
-
-    /* BARRA SUPERIOR (HEADER) - FIEL À IMAGEM */
-    .top-header {
-        height: 60px;
-        background-color: #000000;
-        border-bottom: 1px solid #1f1f1f;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 0 30px;
-        position: fixed;
+    /* Estilo do Menu Lateral/Dropdown igual ao seu print */
+    .ai-selector-box {
+        background-color: #1a1a1b;
+        border-radius: 15px;
+        padding: 15px;
+        border: 1px solid #333;
+        margin-bottom: 20px;
+    }
+    
+    /* Logo com o brilho que você aprovou */
+    .vidiom-logo-top {
+        text-align: center; font-family: 'Inter', sans-serif; font-size: 32px;
+        letter-spacing: 8px; font-weight: 300; text-transform: uppercase; padding: 20px 0;
+        background: linear-gradient(to right, #d9d9d9 0%, #d9d9d9 40%, #ffffff 50%, #d9d9d9 60%, #d9d9d9 100%);
+        background-size: 200% auto; -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        animation: shimmer_smooth 4s infinite linear;
         width: 100%;
-        top: 0;
-        z-index: 1000;
     }
-
-    .nav-items { display: flex; gap: 25px; align-items: center; font-family: sans-serif; }
-    .nav-link { font-size: 11px; letter-spacing: 1.5px; color: #888; font-weight: 600; cursor: pointer; }
-    .nav-link:hover { color: white; }
-    
-    .btn-upgrade-white {
-        background-color: white; color: black; padding: 6px 16px;
-        border-radius: 4px; font-weight: 800; font-size: 11px; text-transform: uppercase;
-    }
-
-    /* BARRA LATERAL DE FERRAMENTAS (SIDEBAR FINA) */
-    .sidebar-tools {
-        width: 55px;
-        background-color: #000000;
-        border-right: 1px solid #1f1f1f;
-        height: 100vh;
-        position: fixed;
-        left: 0;
-        top: 60px;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        padding-top: 20px;
-        gap: 25px;
-        z-index: 999;
-    }
-    .tool-btn { color: #444; font-size: 18px; cursor: pointer; transition: 0.3s; }
-    .tool-btn:hover { color: #6366f1; }
-
-    /* AREA DE TRABALHO (GRID DE PAINÉIS) */
-    .workspace {
-        margin-left: 55px;
-        margin-top: 60px;
-        padding: 15px;
-        display: grid;
-        grid-template-columns: 1fr 1.5fr;
-        grid-template-rows: 1fr 0.5fr;
-        gap: 15px;
-        height: calc(100vh - 80px);
-    }
-
-    .panel-box {
-        background-color: #111112;
-        border: 1px solid #1f1f1f;
-        border-radius: 8px;
-        padding: 15px;
-        position: relative;
-    }
-
-    .panel-label {
-        font-size: 11px;
-        color: #555;
-        text-transform: uppercase;
-        font-weight: bold;
-        margin-bottom: 10px;
-        display: flex;
-        justify-content: space-between;
-    }
-
-    /* TIMELINE (LINHA DO TEMPO) */
-    .timeline-area {
-        grid-column: span 2;
-        background-color: #0a0a0b;
-        border-radius: 8px;
-        border: 1px solid #1f1f1f;
-        padding: 15px;
-    }
-
-    /* OCULTAR ELEMENTOS CHAVE DO STREAMLIT QUE ESTRAGAM O DESIGN */
-    [data-testid="stFileUploadDropzone"] { background: #1a1a1b !important; border: 1px dashed #333 !important; }
+    @keyframes shimmer_smooth { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
     </style>
-""", unsafe_allow_html=True)
-
-# --- 2. RENDERIZAÇÃO DO CABEÇALHO ---
-st.markdown(f"""
-    <div class="top-header">
-        <div style="display: flex; align-items: center;">
-            <img src="https://via.placeholder.com/150x30?text=VIDIOM.AI" style="height: 22px;"> </div>
-        <div class="nav-items">
-            <div class="nav-link">PROJECTS</div>
-            <div class="nav-link">TOOLS</div>
-            <div class="nav-link">DASHBOARD</div>
-            <div class="nav-link">SETTINGS</div>
-            <div class="btn-upgrade-white">UPGRADE</div>
-        </div>
-    </div>
-""", unsafe_allow_html=True)
-
-# --- 3. BARRA DE FERRAMENTAS LATERAL ---
-st.markdown("""
-    <div class="sidebar-tools">
-        <div class="tool-btn">🗂️</div>
-        <div class="tool-btn">✂️</div>
-        <div class="tool-btn">💬</div>
-        <div class="tool-btn">🎵</div>
-        <div class="tool-btn">⚙️</div>
-    </div>
-""", unsafe_allow_html=True)
-
-# --- 4. ÁREA DE EDIÇÃO (GRID) ---
-# Usamos colunas nativas do Streamlit dentro da margem para controle funcional
-main_area = st.container()
-
-with main_area:
-    # Espaçamento para o cabeçalho e sidebar
-    st.markdown('<div style="margin-left: 65px; margin-top: 75px; padding-right: 20px;">', unsafe_allow_html=True)
-    
-    row1_col1, row1_col2 = st.columns([1, 1.8])
-    
-    # PAINEL DA BIBLIOTECA (Library)
-    with row1_col1:
-        st.markdown('<div class="panel-box" style="height: 400px;">', unsafe_allow_html=True)
-        st.markdown('<div class="panel-label"><span>LIBRARY</span> <span>Filter ▽</span></div>', unsafe_allow_html=True)
-        
-        up = st.file_uploader("Upload", type=["mp4"], label_visibility="collapsed")
-        
-        # Grid de vídeos (thumbnails) igual à imagem
-        st.write("---")
-        t1, t2 = st.columns(2)
-        t1.image("https://via.placeholder.com/160x90/1a1a1b/666?text=Scene+01", caption="Vidiom_01")
-        t2.image("https://via.placeholder.com/160x90/1a1a1b/666?text=Scene+02", caption="Vidiom_02")
-        st.markdown('</div>', unsafe_allow_html=True)
-
-    # PAINEL DE PREVIEW (Video)
-    with row1_col2:
-        st.markdown('<div class="panel-box" style="height: 400px; background-color: #000;">', unsafe_allow_html=True)
-        st.markdown('<div class="panel-label">VIDEO PREVIEW</div>', unsafe_allow_html=True)
-        if up:
-            st.video(up)
-        else:
-            st.markdown("<center><br><br><br><p style='color:#333;'>Aguardando mídia...</p></center>", unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-
-    # PAINEL DA LINHA DO TEMPO (Timeline)
-    st.markdown('<div style="margin-top: 15px;">', unsafe_allow_html=True)
-    st.markdown('<div class="timeline-area">', unsafe_allow_html=True)
-    st.markdown('<div class="panel-label">TIMELINE / EDITOR</div>', unsafe_allow_html=True)
-    
-    # Simulação visual da trilha de vídeo
-    st.markdown("""
-        <div style="height: 40px; background: #1a1a1c; border-radius: 4px; border-left: 4px solid #6366f1; margin-bottom: 5px; width: 70%;"></div>
-        <div style="height: 40px; background: #1a1a1c; border-radius: 4px; border-left: 4px solid #333; width: 90%;"></div>
     """, unsafe_allow_html=True)
+
+# --- 2. FUNÇÃO DE INTEGRAÇÃO (A "PONTE") ---
+def call_ai_api(prompt, model_name):
+    # Exemplo usando a Fal.ai (que tem Luma, Vidu, etc)
+    # Você precisaria colocar sua API_KEY aqui depois
+    api_key = st.secrets.get("FAL_KEY", "SUA_CHAVE_AQUI")
     
-    st.slider("Playhead", 0, 100, (20, 80), label_visibility="collapsed")
+    # Aqui o código enviaria o prompt para o modelo escolhido
+    # Por enquanto, simulamos o retorno para você ver a interface
+    return f"Generating video with {model_name}..."
+
+# --- 3. INTERFACE DO DASHBOARD ---
+
+st.markdown('<div class="vidiom-logo-top">VIDIOM.AI</div>', unsafe_allow_html=True)
+
+# Barra Lateral ou Menu de Modelos (Igual ao MindVideo)
+with st.sidebar:
+    st.image("https://via.placeholder.com/150x50?text=VIDIOM+LOGO", use_column_width=True)
+    st.markdown("### 🤖 AI Model Selection")
+    
+    # Lista de modelos que aparecem no seu print
+    ai_model = st.selectbox(
+        "Select Engine",
+        [
+            "Jimeng 3.0 1080P", 
+            "Jimeng 3.0 Pro", 
+            "Luma Ray 1.6", 
+            "Luma Ray 2.0", 
+            "Vidu Q2", 
+            "Sora 2 Beta (Free Trial)"
+        ]
+    )
+    
+    st.info(f"Model: {ai_model}\nStatus: Stable")
+    st.markdown("---")
+    st.button("Upgrade to Pro", use_container_width=True)
+
+# Área Principal
+col_main, col_preview = st.columns([2, 1])
+
+with col_main:
+    st.markdown("### 📝 Text to Video")
+    user_prompt = st.text_area("Describe your video...", placeholder="A futuristic car driving through a neon city at night, 4k, cinematic...")
+    
+    if st.button("Generate Video", type="primary"):
+        with st.status(f"Connecting to {ai_model}...", expanded=True):
+            # Aqui chamamos a integração real
+            result = call_ai_api(user_prompt, ai_model)
+            st.write(result)
+
+with col_preview:
+    st.markdown("### 📺 Preview")
+    # Moldura arredondada para o vídeo gerado
+    st.markdown('<div style="border-radius:20px; overflow:hidden; border:1px solid #333;">', unsafe_allow_html=True)
+    st.video("https://www.w3schools.com/html/mov_bbb.mp4") # Vídeo de exemplo
+    st.markdown('</div>', unsafe_allow_html=True)
