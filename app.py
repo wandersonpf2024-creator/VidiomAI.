@@ -5,17 +5,38 @@ import moviepy.video.fx.all as vfx
 from moviepy.video.compositing.CompositeVideoClip import CompositeVideoClip
 from moviepy.video.VideoClip import TextClip
 
-# --- 1. CONFIGURAÇÃO DA PÁGINA (WIDE + TEMA ESCURO) ---
+# --- 1. CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="VIDIOM AI", layout="wide")
 
 st.markdown("""
     <style>
-    /* Fundo e Container */
-    .stApp { background-color: #0d0d0d; color: #ffffff; }
-    .main .block-container { max-width: 1100px !important; margin: 0 auto; }
+    /* DEFINIÇÃO DAS ANIMAÇÕES */
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
 
-    /* Nome do App no Topo (Sua marca) */
+    @keyframes scaleIn {
+        from {
+            opacity: 0;
+            transform: scale(0.95);
+        }
+        to {
+            opacity: 1;
+            transform: scale(1);
+        }
+    }
+
+    /* APLICAÇÃO DAS ANIMAÇÕES NOS ELEMENTOS */
+    
     .vidiom-logo-top {
+        animation: fadeInUp 0.8s ease-out forwards;
         text-align: center;
         font-family: 'Inter', sans-serif;
         font-size: 32px;
@@ -25,8 +46,16 @@ st.markdown("""
         padding: 20px 0;
     }
 
-    /* Container do Vídeo Estilo Dashboard */
+    .header-box {
+        animation: fadeInUp 1s ease-out forwards;
+        display: flex;
+        align-items: center;
+        margin-bottom: 20px;
+    }
+
+    /* O container do vídeo vem com um leve "pulo" de escala */
     .video-frame-vidiom {
+        animation: scaleIn 0.8s ease-out 0.2s backwards;
         background-color: #1a1a1b;
         border-radius: 20px;
         padding: 30px;
@@ -34,22 +63,22 @@ st.markdown("""
         margin-bottom: 25px;
     }
 
-    /* BORDAS ARREDONDADAS NO VÍDEO (O que você pediu por último) */
     .stVideo {
         overflow: hidden !important;
         border-radius: 20px !important;
         box-shadow: 0 10px 30px rgba(0,0,0,0.5);
     }
 
-    /* Título com Claquete */
-    .header-box {
-        display: flex;
-        align-items: center;
-        margin-bottom: 20px;
+    /* Botões e Inputs aparecem por último */
+    .stSlider, .stTextArea, .stFileUploader, .stButton {
+        animation: fadeInUp 0.8s ease-out 0.4s backwards;
     }
+
+    /* ESTILOS GERAIS MANTIDOS */
+    .stApp { background-color: #0d0d0d; color: #ffffff; }
+    .main .block-container { max-width: 1100px !important; margin: 0 auto; }
     .header-text { font-size: 22px; font-weight: bold; margin-left: 12px; }
 
-    /* Botão CONVERTER (Branco, Arredondado, com Brilho) */
     div.stButton > button:first-child {
         background: white !important;
         color: black !important;
@@ -61,7 +90,6 @@ st.markdown("""
         box-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
     }
 
-    /* Estilo dos Cards de Legenda */
     .stButton > button {
         background-color: #1c1c1e;
         color: #8e8e93;
@@ -71,17 +99,15 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. LÓGICA DE VÍDEO (MARCA D'ÁGUA + CORTE VERTICAL) ---
-def processar_vidiom_completo(video_in, start, end):
-    output_path = "vidiom_final.mp4"
+# --- 2. LÓGICA DE VÍDEO (MARCA D'ÁGUA + CORTE 9:16) ---
+def processar_vidiom_animated(video_in, start, end):
+    output_path = "vidiom_render.mp4"
     try:
         with VideoFileClip(video_in, audio=True).subclip(start, end) as clip:
-            # Transforma em Vertical 9:16 (Resolve o problema do tamanho)
             h = clip.h
             w_v = h * (9/16)
             clip_v = vfx.crop(clip, x_center=clip.w/2, width=w_v)
             
-            # Desenha a Marca d'água [VIDIOM.AI] (Garante sua marca)
             try:
                 marca = (TextClip("VIDIOM.AI", fontsize=25, color='white', font='Arial-Bold')
                          .set_opacity(0.5)
@@ -90,7 +116,7 @@ def processar_vidiom_completo(video_in, start, end):
                          .margin(right=20, bottom=40, opacity=0))
                 final = CompositeVideoClip([clip_v, marca])
             except:
-                final = clip_v # Fallback caso falte biblioteca de fontes
+                final = clip_v
 
             final.write_videofile(output_path, codec="libx264", audio_codec="aac", threads=1, logger=None)
         return output_path
@@ -98,12 +124,9 @@ def processar_vidiom_completo(video_in, start, end):
         st.error(f"Erro: {e}")
         return None
 
-# --- 3. INTERFACE (O QUE O USUÁRIO VÊ) ---
+# --- 3. INTERFACE COM MOTION DESIGN ---
 
-# Nome no topo
 st.markdown('<div class="vidiom-logo-top">VIDIOM.AI</div>', unsafe_allow_html=True)
-
-# Título com claquete
 st.markdown('<div class="header-box">🎬 <span class="header-text">Converta vídeos longos em vídeos curtos</span></div>', unsafe_allow_html=True)
 
 arquivo = st.file_uploader("", type=["mp4", "mov"])
@@ -114,36 +137,34 @@ if arquivo:
     with VideoFileClip("temp.mp4") as v:
         dur = int(v.duration)
 
-    # Preview Arredondado dentro da Moldura
     st.markdown('<div class="video-frame-vidiom">', unsafe_allow_html=True)
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         st.video("temp.mp4")
     st.markdown('</div>', unsafe_allow_html=True)
     
-    st.write("### Selecione a parte que deseja converter vídeos curtos")
+    st.write("### Selecione o corte")
     tempo = st.slider("", 0, dur, (0, min(60, dur)))
 
-    st.write("### Selecionar modelo de legenda")
-    cols = st.columns(10) # 10 colunas como pedido
+    st.write("### Estilo de Legenda")
+    cols = st.columns(10)
     for i in range(10):
-        with cols[i]: st.button(f"Estilo {i+1}", key=f"e{i}")
+        with cols[i]: st.button(f"Mod {i+1}", key=f"e{i}")
 
     st.write("---")
-    
     c1, c2 = st.columns([3, 1])
     with c1:
-        st.text_area("Duração dos vídeos curtos", placeholder="A IA vai focar no centro...")
+        st.text_area("Contexto", placeholder="O que acontece no vídeo?")
     with c2:
         st.write("##")
         if st.button("Converter"):
-            with st.status("🎬 Ajustando escala 9:16 e aplicando marca d'água...", expanded=False):
-                res = processar_vidiom_completo("temp.mp4", tempo[0], tempo[1])
+            with st.status("🎬 Processando...", expanded=False):
+                res = processar_vidiom_animated("temp.mp4", tempo[0], tempo[1])
                 if res:
-                    st.success("Corte Realizado!")
+                    st.success("Pronto!")
                     with open(res, "rb") as f:
-                        st.download_button("📥 BAIXAR AGORA", f, file_name="vidiom_viral.mp4")
+                        st.download_button("📥 BAIXAR", f, file_name="vidiom.mp4")
 else:
-    st.info("Arraste e solte seu vídeo para começar.")
+    st.info("Upload de vídeo pendente.")
 
-st.markdown("<br><center><small>© 2026 VIDIOM.AI - Inteligência em Vídeo</small></center>", unsafe_allow_html=True)
+st.markdown("<br><center><small>© 2026 VIDIOM.AI</small></center>", unsafe_allow_html=True)
