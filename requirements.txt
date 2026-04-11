@@ -1,4 +1,6 @@
 streamlit
+supabase
+requests
 groq
 youtube-transcript-api
 yt-dlp
