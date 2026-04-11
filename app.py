@@ -30,12 +30,12 @@ h1, h2, h3 { color: white; }
 </style>
 """, unsafe_allow_html=True)
 
-# --- SETUP AI ---
+# --- SETUP AI (MODELO CORRIGIDO) ---
 def setup_engine():
     try:
         if "GEMINI_API_KEY" in st.secrets:
             genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-            return genai.GenerativeModel('gemini-1.5-flash')
+            return genai.GenerativeModel('gemini-pro')  # ✅ modelo que funciona
     except Exception as e:
         st.error(f"AI Error: {e}")
         return None
@@ -49,7 +49,7 @@ def extrair_id(url):
     match = re.search(pattern, url)
     return match.group(1) if match else None
 
-# --- UI HEADER ---
+# --- HEADER ---
 st.title("🚀 VIDIOM AI – Viral Video Engine")
 st.markdown("### Turn Any Video Into Viral Shorts in Seconds")
 
@@ -89,7 +89,7 @@ with col1:
                     except:
                         st.write("No transcript found. Using AI inference.")
 
-                # --- PROMPT PROFISSIONAL ---
+                # --- PROMPT SUPER OTIMIZADO ---
                 prompt = f"""
 You are a world-class viral content strategist specialized in TikTok, Instagram Reels, and YouTube Shorts.
 
@@ -99,6 +99,8 @@ Video URL: {url_input}
 
 Transcript:
 {transcricao[:3000]}
+
+If transcript is missing, infer based on context.
 
 Analyze deeply using:
 - Curiosity gaps
@@ -116,8 +118,7 @@ Write a SCROLL-STOPPING opening line.
 Give the exact timestamp (start - end) of the most viral moment.
 
 🎬 CAPTION SCRIPT:
-Rewrite the speech into short, punchy subtitles optimized for retention.
-Break lines every 3–6 words.
+Rewrite into short, punchy subtitles (3–6 words per line).
 
 ✨ POWER WORDS:
 Highlight impactful words in UPPERCASE.
@@ -126,9 +127,10 @@ Highlight impactful words in UPPERCASE.
 Explain WHY this clip will retain attention.
 
 ⚡ VIRAL SCORE:
-Give a score from 1 to 10.
+Score from 1 to 10.
 
-Also suggest 2 ALTERNATIVE hooks for A/B testing.
+💡 EXTRA:
+Suggest 2 alternative hooks for A/B testing.
 
 Style: {estilo}
 """
@@ -148,7 +150,10 @@ with col2:
     st.subheader("🎬 Viral Output")
 
     if "resultado" in st.session_state:
-        st.markdown(f'<div class="script-box">{st.session_state.resultado}</div>', unsafe_allow_html=True)
+        st.markdown(
+            f'<div class="script-box">{st.session_state.resultado}</div>',
+            unsafe_allow_html=True
+        )
 
         st.download_button(
             "📥 Download Script",
