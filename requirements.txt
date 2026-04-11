@@ -1,9 +1,9 @@
 streamlit
 supabase
-requests
-groq
-youtube-transcript-api
-yt-dlp
+openai-whisper
 moviepy==1.0.3
+groq
 Pillow
+pydub
 proglog
+requests
