@@ -1,3 +1,5 @@
 streamlit
 groq
 youtube-transcript-api
+yt-dlp
+moviepy
