@@ -1,131 +1,121 @@
 import streamlit as st
-import os
 from moviepy.video.io.VideoFileClip import VideoFileClip
-import moviepy.video.fx.all as vfx 
-from moviepy.video.compositing.CompositeVideoClip import CompositeVideoClip
-from moviepy.video.VideoClip import TextClip
 
-# --- 1. PAGE CONFIGURATION ---
-st.set_page_config(page_title="VIDIOM AI", layout="wide")
+# --- 1. CONFIGURAÇÃO E ESTILO ---
+st.set_page_config(page_title="VIDIOM AI | Pricing", layout="wide")
 
 st.markdown("""
     <style>
-    @keyframes fadeInUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
-    @keyframes scaleIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
-    @keyframes shimmer_smooth { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+    /* Animações e Shimmer que você aprovou */
+    @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
 
     .stApp { background-color: #0d0d0d; color: #ffffff; }
-    .main .block-container { max-width: 1100px !important; margin: 0 auto; }
-
+    
     .vidiom-logo-top {
-        text-align: center; font-family: 'Inter', sans-serif; font-size: 32px;
-        letter-spacing: 8px; font-weight: 300; text-transform: uppercase; padding: 20px 0;
-        background: linear-gradient(to right, #d9d9d9 0%, #d9d9d9 40%, #ffffff 50%, #d9d9d9 60%, #d9d9d9 100%);
-        background-size: 200% auto; -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-        animation: fadeInUp 0.8s ease-out, shimmer_smooth 4s infinite linear;
-        display: inline-block; width: 100%;
+        text-align: center; font-family: 'Inter', sans-serif; font-size: 30px;
+        letter-spacing: 7px; text-transform: uppercase; padding: 20px 0;
+        background: linear-gradient(to right, #d9d9d9 0%, #ffffff 50%, #d9d9d9 100%);
+        background-size: 200% auto; -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent; animation: shimmer 4s infinite linear;
     }
 
-    .video-frame-vidiom {
-        animation: scaleIn 0.8s ease-out 0.2s backwards;
-        background-color: #1a1a1b; border-radius: 20px; padding: 30px;
-        border: 1px solid #262627; margin-bottom: 25px;
+    /* CARTÕES DE PREÇO ESTILO PREMIUM */
+    .pricing-card {
+        background: #1a1a1b;
+        border: 1px solid #333;
+        border-radius: 20px;
+        padding: 30px;
+        text-align: center;
+        transition: 0.3s;
+        animation: fadeInUp 0.8s ease-out backwards;
     }
-
-    .stVideo { overflow: hidden !important; border-radius: 20px !important; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
-
-    div.stButton > button:first-child {
-        background: white !important; color: black !important; border-radius: 30px !important;
-        padding: 12px 50px !important; font-weight: bold !important; border: none !important;
-        float: right; box-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
+    .pricing-card:hover {
+        border-color: #ffffff;
+        transform: translateY(-5px);
+        box-shadow: 0 10px 30px rgba(255,255,255,0.05);
     }
-
-    .stButton > button { background-color: #1c1c1e; color: #8e8e93; border: 1px solid #3a3a3c; border-radius: 12px; }
+    .price-tag { font-size: 40px; font-weight: bold; margin: 15px 0; }
+    .plan-name { color: #8e8e93; text-transform: uppercase; letter-spacing: 2px; }
+    
+    /* Botão de Upgrade */
+    .stButton > button {
+        border-radius: 25px !important;
+        width: 100%;
+        font-weight: bold !important;
+    }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. FIXED VIDEO LOGIC (ENSURING EVEN DIMENSIONS) ---
-def process_vidiom_final_fix(video_in, start, end):
-    output_path = "vidiom_pro_render.mp4"
-    try:
-        clip = VideoFileClip(video_in, audio=True).subclip(start, end)
-        
-        # 1. Calculate Vertical Crop (9:16)
-        h = clip.h
-        target_w = int(h * (9/16))
-        
-        # FIX: Force width to be even (Required by libx264)
-        if target_w % 2 != 0:
-            target_w -= 1
-            
-        # 2. Crop and Watermark
-        clip_v = vfx.crop(clip, x_center=clip.w/2, width=target_w).copy()
-        
-        try:
-            wm = (TextClip("VIDIOM.AI", fontsize=25, color='white', font='Arial-Bold')
-                     .set_opacity(0.5)
-                     .set_duration(clip_v.duration)
-                     .set_position(('right', 'bottom'))
-                     .margin(right=20, bottom=40, opacity=0))
-            final = CompositeVideoClip([clip_v, wm])
-        except:
-            final = clip_v
-
-        # 3. Export with correct pixel format
-        final.write_videofile(
-            output_path, 
-            codec="libx264", 
-            audio_codec="aac", 
-            fps=24, 
-            logger=None,
-            ffmpeg_params=["-pix_fmt", "yuv420p"]
-        )
-        
-        clip.close()
-        final.close()
-        return output_path
-    except Exception as e:
-        st.error(f"Render Error: {e}")
-        return None
-
-# --- 3. INTERFACE ---
-st.markdown('<div class="vidiom-logo-top">VIDIOM.AI</div>', unsafe_allow_html=True)
-st.markdown('<h4 style="color:#8e8e93; font-weight:normal;">‹ Convert long videos into shorts</h4>', unsafe_allow_html=True)
-
-file = st.file_uploader("", type=["mp4", "mov"])
-
-if file:
-    with open("input.mp4", "wb") as f: f.write(file.getbuffer())
-    
-    with VideoFileClip("input.mp4") as v:
-        total_dur = int(v.duration)
-
-    st.markdown('<div class="video-frame-vidiom">', unsafe_allow_html=True)
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2: st.video("input.mp4")
-    st.markdown('</div>', unsafe_allow_html=True)
-    
-    st.write("### Select duration")
-    t_range = st.slider("", 0, total_dur, (0, min(60, total_dur)))
-
-    st.write("### Style")
-    cols = st.columns(10)
-    for i in range(10):
-        with cols[i]: st.button(f"S{i+1}", key=f"s_{i}")
-
+# --- 2. MENU LATERAL (SIMULANDO O MINDVIDEO) ---
+with st.sidebar:
+    st.markdown('<div class="vidiom-logo-top" style="font-size:20px;">VIDIOM.AI</div>', unsafe_allow_html=True)
     st.write("---")
-    c1, c2 = st.columns([3, 1])
-    with c1: st.text_area("Context", placeholder="Explain the scene...")
-    with c2:
-        st.write("##")
-        if st.button("Convert"):
-            with st.status("🎬 Rendering even-dimension video...", expanded=False):
-                res = process_vidiom_final_fix("input.mp4", t_range[0], t_range[1])
-                if res:
-                    st.success("Success!")
-                    with open(res, "rb") as f:
-                        st.download_button("📥 DOWNLOAD NOW", f, file_name="vidiom_short.mp4")
-else:
-    st.info("Please upload a video.")
+    st.write("### 👤 Account status")
+    st.success("Free Member")
+    st.write("**Credits left:** 05")
+    st.write("---")
+    menu = st.radio("Navigation", ["Video Editor", "Subscription Plans", "AI Models Settings"])
 
-st.markdown("<br><center><small>© 2026 VIDIOM.AI</small></center>", unsafe_allow_html=True)
+# --- 3. LOGICA DE NAVEGAÇÃO ---
+
+if menu == "Subscription Plans":
+    st.markdown("<h2 style='text-align: center;'>Choose your power</h2>", unsafe_allow_html=True)
+    st.write("##")
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.markdown("""
+            <div class="pricing-card">
+                <div class="plan-name">Starter</div>
+                <div class="price-tag">$0 <small>/mo</small></div>
+                <p>• 5 AI Credits</p>
+                <p>• Standard Speed</p>
+                <p>• VIDIOM Watermark</p>
+            </div>
+        """, unsafe_allow_html=True)
+        st.button("Current Plan", key="p1", disabled=True)
+
+    with col2:
+        st.markdown("""
+            <div class="pricing-card" style="border-color: #ffffff;">
+                <div class="plan-name" style="color: #ffffff;">Pro (Best Value)</div>
+                <div class="price-tag">$29 <small>/mo</small></div>
+                <p>• 100 AI Credits</p>
+                <p>• No Watermark</p>
+                <p>• Luma Ray 2.0 Access</p>
+            </div>
+        """, unsafe_allow_html=True)
+        if st.button("Upgrade to Pro", key="p2"):
+            st.balloons()
+            st.info("Redirecting to Stripe...")
+
+    with col3:
+        st.markdown("""
+            <div class="pricing-card">
+                <div class="plan-name">Agency</div>
+                <div class="price-tag">$99 <small>/mo</small></div>
+                <p>• Unlimited Credits</p>
+                <p>• API Access</p>
+                <p>• Dedicated Support</p>
+            </div>
+        """, unsafe_allow_html=True)
+        st.button("Contact Sales", key="p3")
+
+elif menu == "Video Editor":
+    st.markdown('<div class="vidiom-logo-top">VIDIOM.AI</div>', unsafe_allow_html=True)
+    st.markdown('<h4 style="color:#8e8e93; font-weight:normal; text-align:center;">Convert long videos into viral shorts</h4>', unsafe_allow_html=True)
+    
+    # Interface do Editor que já tínhamos (Simplificada aqui para teste)
+    uploaded_file = st.file_uploader("Upload your video", type=["mp4"])
+    if uploaded_file:
+        st.video(uploaded_file)
+        st.slider("Select segment", 0, 100, (0, 30))
+        if st.button("Convert to 9:16"):
+            st.warning("Please upgrade to PRO to remove watermark.")
+
+else:
+    st.write("### AI Models Configuration")
+    st.selectbox("Default AI Engine", ["Vidu Q2", "Luma Ray 2.0", "Jimeng 3.0 Pro"])
+    st.checkbox("Always use 4K resolution (Uses 2x credits)")
