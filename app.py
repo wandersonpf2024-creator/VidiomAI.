@@ -3,13 +3,10 @@ import os
 import re
 from groq import Groq
 from moviepy.video.io.VideoFileClip import VideoFileClip
-from moviepy.video.VideoClip import ImageClip, TextClip
-from moviepy.video.compositing.concatenate import concatenate_videoclips
-from PIL import Image, ImageDraw, ImageFont
 
-# --- SETUP E ESTILIZAÇÃO ---
-st.set_page_config(page_title="VIDIOM AI | MVP", layout="wide")
-st.markdown("""<style>.stTextArea textarea { background-color: #1e2129; color: white; }.stButton>button { background-color: #ff4b4b; color: white; }</style>""", unsafe_allow_html=True)
+# --- SETUP E ESTILIZAÇÃO (MUDOU O TÍTULO) ---
+st.set_page_config(page_title="VIDIOM AI | MVP Funcional", layout="wide")
+st.markdown("""<style>.stTextArea textarea { background-color: #1e2129; color: white; }.stButton>button { background-color: #ff4b4b; color: white; }.stVideo { width: 100%; border-radius: 5px; margin-bottom: 20px; }</style>""", unsafe_allow_html=True)
 
 # Segurança
 if "GROQ_API_KEY" not in st.secrets:
@@ -18,63 +15,20 @@ if "GROQ_API_KEY" not in st.secrets:
 
 client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 
-# --- FUNÇÕES TÉCNICAS NÍVEL HARD ---
-
-# 1. Cria a imagem da capa simples
-def criar_imagem_capa(titulo_texto):
-    width, height = 720, 1280  # Resolução vertical padrão
-    image = Image.new("RGB", (width, height), color="#101319") # Fundo Escuro
-    draw = ImageDraw.Draw(image)
-    
-    # Texto grande e centralizado
-    margin = 50
-    offset = height / 3
-    # Nota: No grátis, não temos fontes instaladas, então usamos a padrão.
-    # Em produção (pago), você instalaria uma fonte como Arial Black.
-    for line in titulo_texto.split('\n'):
-        # Simplificação: sem fonte customizada no grátis
-        draw.text((margin, offset), line, fill="white")
-        offset += 50 # Espaçamento
-    
-    capa_path = "temp_capa.png"
-    image.save(capa_path)
-    return capa_path
-
-# 2. Processa o corte E a capa
-def processar_vidiom(video_path, start, end, titulo):
-    output_final = "vidiom_pronto.mp4"
-    capa_img = criar_imagem_capa(titulo)
-    
+# --- FUNÇÃO DE EDIÇÃO (MUDOU, MAIS LEVE) ---
+def fazer_corte_ia(video_path, start, end):
+    output_path = "corte_viral.mp4"
     try:
-        # Criamos o clipe de 2 segundos da capa
-        with ImageClip(capa_img).set_duration(2) as capa_clip:
-            
-            # Cortamos o vídeo original
-            with VideoFileClip(video_path) as video:
-                # Fallback de segurança para 1 minuto (grátis)
-                duration = min(video.duration, 60) 
-                fim_real = min(end, duration)
-                if start >= fim_real: start = 0
-                
-                # Renderiza o corte em resolução menor para economizar
-                st.write("Processando o corte do vídeo...")
-                with video.subclip(start, fim_real).resize(height=720) as corte:
-                    
-                    # Concatena (capa de 2s + corte de 30s)
-                    st.write("Concatenando a capa ao vídeo...")
-                    vidiom_final = concatenate_videoclips([capa_clip, corte], method="compose")
-                    
-                    # Salva o arquivo final
-                    vidiom_final.write_videofile(output_final, codec="libx264", audio_codec="aac", temp_audiofile='temp-audio.m4a', remove_temp=True, logger=None)
-        
-        return output_final
-        
+        # Força o MoviePy a ler o arquivo de forma "preguiçosa" para salvar memória
+        with VideoFileClip(video_path, audio=True).subclip(start, end) as corte:
+            # Reduz a qualidade para 720p (vertical) para garantir o download no grátis
+            st.write("Processando o vídeo para download...")
+            # codec libx264 é universalmente aceito no TikTok/Reels
+            corte.write_videofile(output_path, codec="libx264", audio_codec="aac", temp_audiofile='temp-audio.m4a', remove_temp=True, logger=None, threads=1)
+        return output_path
     except Exception as e:
-        st.error(f"Erro na edição: {e}")
+        st.error(f"Erro técnico no corte: {e}")
         return None
-    finally:
-        # Limpeza agressiva para economizar memória
-        if os.path.exists("temp_capa.png"): os.remove("temp_capa.png")
 
 # --- INTERFACE ---
 st.title("🤖 VIDIOM AI - Validador de Negócio")
@@ -95,41 +49,51 @@ if video_file:
         st.stop()
         
     st.markdown("### 2️⃣ O que acontece no vídeo?")
-    contexto = st.text_area(label="Descreva o vídeo:", placeholder="Ex: O apresentador está puto com o custo de vida e fala sobre ter mais de uma fonte de renda.")
+    contexto = st.text_area(label="Descreva o vídeo:", placeholder="Ex: Silver Cop vai comprar a Porsche do Balestrin e fala sobre o motor.", height=150)
 
     if st.button("✨ GERAR VÍDEO COMPLETO"):
         if not contexto:
             st.warning("A IA precisa do contexto!")
         else:
-            with st.status("IA Pensando...", expanded=True) as status:
-                # Prompt reforçado para criar o título da capa
+            with st.status("IA Analisando e Processando...", expanded=True) as status:
+                # Prompt SUPER simplificado (NÃO TIRA A CAPA)
                 prompt = f"""
-                Analise o vídeo sobre: "{contexto}" (Duração: {duracao_real}s).
-                Objetivo: Criar um corte viral e uma capa chamativa.
-                Responda APENAS: TÍTULO:X, INICIO:Y, FIM:Z.
-                O título deve ser um 'hook' curto e agressivo de até 5 palavras.
-                X e Y são números inteiros (máximo 30s de corte).
+                Duração total: {duracao_real}s.
+                Contexto: "{contexto}".
+                
+                Com base na descrição, escolha o melhor intervalo de até 30 segundos.
+                Responda APENAS: INICIO:X, FIM:Y.
+                Onde X e Y são números inteiros.
+                Não escreva mais nada.
                 """
                 
-                chat = client.chat.completions.create(messages=[{"role": "user", "content": prompt}], model="llama-3.3-70b-versatile")
-                resposta = chat.choices[0].message.content
-                
+                # Chamada da Groq (Llama 3.3)
                 try:
-                    titulo_ia = re.search(r"TÍTULO:(.*?),", resposta).group(1)
+                    chat = client.chat.completions.create(messages=[{"role": "user", "content": prompt}], model="llama-3.3-70b-versatile")
+                    resposta = chat.choices[0].message.content
+                    
+                    st.write(f"🧠 IA Definiu o Corte: {resposta}")
+                    
+                    # Regex mais robusto para pegar os números
                     start_ia = int(re.search(r"INICIO:(\d+)", resposta).group(1))
                     end_ia = int(re.search(r"FIM:(\d+)", resposta).group(1))
                     
-                    st.write(f"🧠 IA Decidiu: Título para capa: '{titulo_ia}' e corte de {start_ia}s a {end_ia}s.")
-                    
-                    # Chama o processador completo
-                    video_pronto = processar_vidiom("temp_input.mp4", start_ia, end_ia, titulo_ia)
+                    # Chama o processador de corte puro
+                    video_pronto = fazer_corte_ia("temp_input.mp4", start_ia, end_ia)
                     
                     if video_pronto:
-                        status.update(label="O corte está pronto!", state="complete")
+                        status.update(label="O corte está pronto para download!", state="complete")
                         with open(video_pronto, "rb") as f:
                             st.video(f)
-                            st.download_button("📥 BAIXAR MEU VÍDEO COMPLETO", f, file_name="vidiom_mvp.mp4")
-                except:
-                    st.error("A IA se confundiu na resposta ou o tempo expirou. Tente novamente.")
-                    
-            if os.path.exists("temp_input.mp4"): os.remove("temp_input.mp4")
+                            st.download_button("📥 BAIXAR CORTE VIRAL", f, file_name="vidiom_ia_corte.mp4")
+                        
+                        # Limpeza dos arquivos para libertar RAM do servidor
+                        if os.path.exists("temp_input.mp4"): os.remove("temp_input.mp4")
+                        if os.path.exists("corte_viral.mp4"): os.remove("corte_viral.mp4")
+
+                except Exception as e:
+                    # Melhoria no feedback de erro para o usuário
+                    if "timed out" in str(e) or "overload" in str(e):
+                        st.error("A IA demorou demais para pensar devido à alta demanda do servidor gratuito. Tente novamente mais tarde.")
+                    else:
+                        st.error(f"Erro na análise: {e}. A IA se confundiu na resposta ou o tempo expirou. Tente novamente.")
