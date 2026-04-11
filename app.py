@@ -1,65 +1,64 @@
-import os
-import subprocess
-import sys
-
-# --- FORÇAR ATUALIZAÇÃO DA BIBLIOTECA (HARD OVERRIDE) ---
-try:
-    import google.generativeai as genai
-    # Verifica se a versão é antiga (menor que 0.7)
-    from importlib.metadata import version
-    if float(version('google-generativeai')[:3]) < 0.8:
-        raise ImportError
-except (ImportError, Exception):
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "--upgrade", "google-generativeai"])
-    import google.generativeai as genai
-
 import streamlit as st
+import google.generativeai as genai
 import re
 from youtube_transcript_api import YouTubeTranscriptApi
 
-# --- CONFIGURAÇÃO ---
-st.set_page_config(page_title="VIDIOM AI | ULTIMATE", layout="wide")
+# --- SETUP ---
+st.set_page_config(page_title="VIDIOM AI", layout="wide")
 
-def extrair_id(url):
-    pattern = r'(?:v=|\/)([a-zA-Z0-9_-]{11})'
-    match = re.search(pattern, url)
-    return match.group(1) if match else None
+# Inicializa a IA de forma simples
+def iniciar_ia():
+    if "GEMINI_API_KEY" not in st.secrets:
+        st.error("ERRO: Configure a GEMINI_API_KEY nas Secrets do Streamlit!")
+        return None
+    genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+    return genai.GenerativeModel('gemini-1.5-flash')
 
-# --- MOTOR RESILIENTE ---
-def executar_ia(prompt):
-    try:
-        api_key = st.secrets["GEMINI_API_KEY"]
-        genai.configure(api_key=api_key)
-        
-        # O modelo Flash é o mais moderno. Se a biblioteca estiver atualizada, ele VAI funcionar.
-        model = genai.GenerativeModel('gemini-1.5-flash')
-        response = model.generate_content(prompt)
-        return response.text
-    except Exception as e:
-        return f"Erro: {str(e)}"
+ia = iniciar_ia()
+
+# Função para pegar o ID do vídeo
+def pegar_id(url):
+    regex = r"(?:v=|\/)([0-9A-Za-z_-]{11})"
+    busca = re.search(regex, url)
+    return busca.group(1) if busca else None
 
 # --- INTERFACE ---
-st.title("🛰️ VIDIOM AI - Sistema Blindado")
-st.markdown("---")
+st.title("✂️ VIDIOM AI - GERADOR DE CORTES")
 
-url = st.text_input("Link do YouTube:")
+link = st.text_input("Cole o link do YouTube aqui:")
 
-if st.button("GERAR CORTES"):
-    if url:
-        with st.status("Forçando conexão segura...", expanded=True) as status:
-            v_id = extrair_id(url)
-            transcricao = ""
+if st.button("CRIAR ROTEIRO DE CORTE"):
+    if link and ia:
+        with st.spinner("Analisando vídeo..."):
+            video_id = pegar_id(link)
+            texto_video = ""
             
-            if v_id:
+            # Tenta pegar a legenda
+            if video_id:
                 try:
-                    t = YouTubeTranscriptApi.get_transcript(v_id, languages=['pt', 'en'])
-                    transcricao = " ".join([i['text'] for i in t])
-                except: transcricao = "Sem legendas."
+                    legenda = YouTubeTranscriptApi.get_transcript(video_id, languages=['pt', 'en'])
+                    texto_video = " ".join([t['text'] for t in legenda])
+                except:
+                    texto_video = "Legenda não encontrada. Analise pelo contexto do título."
 
-            res = executar_ia(f"Crie um roteiro de corte para: {url}. Texto: {transcricao[:2500]}")
-            st.session_state.output = res
-            status.update(label="Concluído!", state="complete")
+            # O Prompt que faz o trabalho duro
+            prompt = f"""
+            Aja como um editor de vídeos virais. 
+            Analise este conteúdo: {texto_video[:3500]}
+            
+            1. Escolha o melhor momento para um corte de 60 segundos.
+            2. Escreva um TÍTULO chamativo.
+            3. Escreva o ROTEIRO das legendas dinâmicas.
+            """
+            
+            try:
+                resposta = ia.generate_content(prompt)
+                st.session_state.resultado = resposta.text
+                st.success("Roteiro gerado!")
+            except Exception as e:
+                st.error(f"Erro na IA: {e}")
 
-if "output" in st.session_state:
-    st.subheader("🎬 Roteiro")
-    st.info(st.session_state.output)
+# Exibe o resultado
+if "resultado" in st.session_state:
+    st.markdown("### 🎬 Seu Roteiro de Corte:")
+    st.text_area("", st.session_state.resultado, height=400)
