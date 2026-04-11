@@ -5,55 +5,60 @@ import moviepy.video.fx.all as vfx
 from moviepy.video.compositing.CompositeVideoClip import CompositeVideoClip
 from moviepy.video.VideoClip import ImageClip
 
-# --- 1. CONFIGURAÇÃO DE TEMA DARK ---
-st.set_page_config(page_title="VIDIOM AI", layout="wide")
+# --- 1. CONFIGURAÇÃO DE ESTILO ORIGINAL (DARK & CLEAN) ---
+st.set_page_config(page_title="VIDIOM AI | Video Editor", layout="wide")
 
 st.markdown("""
     <style>
+    /* Fundo escuro e fontes limpas */
     .stApp { background-color: #0d0d0d; color: #ffffff; }
-    [data-testid="stSidebar"] { background-color: #000000 !important; border-right: 1px solid #1e1e1e; }
     
-    /* Container para centralizar a logo na sidebar */
-    .logo-sidebar-container {
-        display: flex;
-        justify-content: center;
-        padding: 20px 0;
-        margin-bottom: 10px;
+    /* Logo centralizada com o brilho original */
+    .vidiom-logo {
+        text-align: center; font-family: 'Inter', sans-serif; font-size: 42px;
+        letter-spacing: 10px; font-weight: 300; text-transform: uppercase; padding: 40px 0;
+        background: linear-gradient(to right, #d9d9d9 0%, #d9d9d9 40%, #ffffff 50%, #d9d9d9 60%, #d9d9d9 100%);
+        background-size: 200% auto; -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        animation: shimmer_smooth 4s infinite linear;
     }
-
-    .menu-item {
-        padding: 12px; border-radius: 8px; margin-bottom: 5px;
-        display: flex; align-items: center; gap: 12px; color: #d1d1d1;
+    @keyframes shimmer_smooth { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+    
+    /* Moldura do vídeo */
+    .video-container {
+        background-color: #1a1a1b; border-radius: 20px; padding: 20px;
+        border: 1px solid #333; margin-bottom: 20px;
     }
-    .active-menu { background-color: #262626; color: white; font-weight: bold; }
-
-    .btn-upgrade {
-        background: linear-gradient(90deg, #6366f1 0%, #a855f7 100%);
-        color: white; padding: 12px; border-radius: 8px; text-align: center;
-        font-weight: bold; margin-top: 20px; display: block; text-decoration: none;
+    
+    /* Botão de download de destaque */
+    .stDownloadButton > button {
+        background-color: #ffffff !important; color: #000000 !important;
+        border-radius: 25px !important; font-weight: bold !important; width: 100%;
     }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. MOTOR DE VÍDEO (MARCA D'ÁGUA PEQUENA) ---
-def process_vidiom_final(video_path, start, end):
-    output = "vidiom_output.mp4"
-    logo_file = "logonova.png" # Usando a logo mais recente
+# --- 2. MOTOR DE VÍDEO COM MARCA D'ÁGUA (IMAGEM) ---
+def render_video_clean(video_path, start, end):
+    output = "vidiom_final.mp4"
+    logo_file = "logonova.png" # Sua logo enviada
     
     try:
         clip = VideoFileClip(video_path).subclip(start, end)
         h = clip.h
         w = int(h * (9/16))
-        if w % 2 != 0: w -= 1
+        if w % 2 != 0: w -= 1 # Garante dimensões pares
         
+        # Crop para 9:16
         final_clip = vfx.crop(clip, x_center=clip.w/2, width=w).copy()
         
-        # Se a logo existir, coloca no vídeo
+        # Aplica a logo como marca d'água se o arquivo existir
         if os.path.exists(logo_file):
-            logo = ImageClip(logo_file).set_duration(final_clip.duration).set_opacity(0.6)
-            # Logo bem pequena (15% da largura do vídeo)
+            logo = (ImageClip(logo_file)
+                    .set_duration(final_clip.duration)
+                    .set_opacity(0.6))
+            # Redimensiona para 15% da largura e coloca no canto
             logo = vfx.resize(logo, width=int(final_clip.w * 0.15))
-            logo = logo.set_position(("right", "bottom")).margin(right=15, bottom=15, opacity=0)
+            logo = logo.set_position(("right", "bottom")).margin(right=15, bottom=20, opacity=0)
             result = CompositeVideoClip([final_clip, logo])
         else:
             result = final_clip
@@ -62,50 +67,42 @@ def process_vidiom_final(video_path, start, end):
         clip.close()
         return output
     except Exception as e:
-        st.error(f"Erro na renderização: {e}")
+        st.error(f"Erro: {e}")
         return None
 
-# --- 3. BARRA LATERAL (ESTILO ADICONE.PNG) ---
-with st.sidebar:
-    st.markdown('<div class="logo-sidebar-container">', unsafe_allow_html=True)
-    # Tenta carregar a logonova.png
-    if os.path.exists("logonova.png"):
-        st.image("logonova.png", width=180)
-    else:
-        st.markdown("<h2 style='color:white;'>VIDIOM.AI</h2>", unsafe_allow_html=True)
-    st.markdown('</div>', unsafe_allow_html=True)
-    
-    st.markdown('<div class="menu-item active-menu">🏠 Estúdio Criativo</div>', unsafe_allow_html=True)
-    st.markdown('<div class="menu-item">🌍 Explorar</div>', unsafe_allow_html=True)
-    st.markdown('<div class="menu-item">📁 Minhas Criações</div>', unsafe_allow_html=True)
-    st.write("---")
-    
-    nav = st.radio("Ferramentas", ["Editor de Cortes", "Planos de Upgrade"], label_visibility="collapsed")
-    
-    st.write("---")
-    st.markdown('<a class="btn-upgrade">🚀 Faça Upgrade Agora</a>', unsafe_allow_html=True)
-    st.markdown('<div class="menu-item">🎁 Indique um Amigo</div>', unsafe_allow_html=True)
+# --- 3. INTERFACE PRINCIPAL ---
 
-# --- 4. ÁREA CENTRAL ---
-if nav == "Editor de Cortes":
-    st.title("🎬 Creative Studio")
-    uploaded = st.file_uploader("Selecione o vídeo para transformar em Short", type=["mp4", "mov"])
+st.markdown('<div class="vidiom-logo">VIDIOM.AI</div>', unsafe_allow_html=True)
+
+uploaded_file = st.file_uploader("Upload your video here", type=["mp4", "mov"])
+
+if uploaded_file:
+    with open("input_temp.mp4", "wb") as f:
+        f.write(uploaded_file.getbuffer())
     
-    if uploaded:
-        with open("temp_in.mp4", "wb") as f: f.write(uploaded.getbuffer())
+    col_pre, col_settings = st.columns([1.5, 1])
+    
+    with col_pre:
+        st.markdown('<div class="video-container">', unsafe_allow_html=True)
+        st.video("input_temp.mp4")
+        st.markdown('</div>', unsafe_allow_html=True)
         
-        st.video("temp_in.mp4")
+    with col_settings:
+        st.write("### ⚙️ Video Settings")
+        with VideoFileClip("input_temp.mp4") as v:
+            duration = int(v.duration)
         
-        with VideoFileClip("temp_in.mp4") as v: dur = int(v.duration)
-        t_range = st.slider("Selecione o trecho", 0, dur, (0, min(10, dur)))
+        time_range = st.slider("Select Segment", 0, duration, (0, min(15, duration)))
         
-        if st.button("Gerar Short com Marca d'água", type="primary"):
-            with st.status("Processando..."):
-                res = process_vidiom_final("temp_in.mp4", t_range[0], t_range[1])
-                if res:
-                    st.success("Corte concluído!")
-                    with open(res, "rb") as f:
-                        st.download_button("📥 BAIXAR VÍDEO", f, file_name="vidiom_short.mp4")
-else:
-    st.write("### Área de Assinaturas")
-    st.info("Aqui você pode configurar os planos que vimos nas imagens anteriores.")
+        st.write("---")
+        if st.button("CREATE VIRAL SHORT", type="primary", use_container_width=True):
+            with st.status("🎬 Processing..."):
+                final_path = render_video_clean("input_temp.mp4", time_range[0], time_range[1])
+                if final_path:
+                    st.success("Your video is ready!")
+                    with open(final_path, "rb") as f:
+                        st.download_button("📥 DOWNLOAD NOW", f, file_name="vidiom_short.mp4")
+
+# Footer simples
+st.write("##")
+st.markdown("<center style='color:#555;'>Powered by VIDIOM.AI Engine</center>", unsafe_allow_html=True)
