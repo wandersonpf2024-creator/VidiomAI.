@@ -1,96 +1,163 @@
 import streamlit as st
 import google.generativeai as genai
-import random
-import urllib.parse
 import re
+from youtube_transcript_api import YouTubeTranscriptApi
 
-# --- ESTÉTICA DE ELITE (CYBER-SaaS) ---
-st.set_page_config(page_title="VIDIOM AI | FIRST TO MARKET", layout="wide", page_icon="💎")
+# --- CONFIG PAGE ---
+st.set_page_config(page_title="VIDIOM AI - Viral Video Engine", layout="wide")
 
+# --- STYLE ---
 st.markdown("""
-    <style>
-    .stApp { background: #020202; color: #ffffff; }
-    .main-header { font-size: 3rem; font-weight: 800; letter-spacing: -2px; color: #fff; margin-bottom: 0; }
-    .accent { color: #6366f1; }
-    .stTabs [data-baseweb="tab-list"] { gap: 8px; }
-    .stTabs [data-baseweb="tab"] { background: #111; border: 1px solid #222; border-radius: 8px 8px 0 0; padding: 10px 20px; }
-    .stTabs [aria-selected="true"] { background: #6366f1 !important; border: 1px solid #6366f1 !important; }
-    div[data-testid="stStatusWidget"] { background: #0a0a0a; border: 1px solid #222; }
-    </style>
-    """, unsafe_allow_html=True)
+<style>
+.stApp { background: #050505; color: #fff; }
+h1, h2, h3 { color: white; }
+.stButton>button {
+    background: #6366f1;
+    color: white;
+    border-radius: 10px;
+    font-weight: bold;
+    border: none;
+    padding: 12px;
+}
+.script-box {
+    background: #111;
+    border: 1px solid #222;
+    padding: 20px;
+    border-radius: 12px;
+    font-family: monospace;
+    color: #00ff88;
+}
+</style>
+""", unsafe_allow_html=True)
 
-# --- BACKEND DE INTELIGÊNCIA ---
+# --- SETUP AI ---
 def setup_engine():
     try:
-        api_key = st.secrets["GEMINI_API_KEY"]
-        genai.configure(api_key=api_key)
-        # Nível Máximo: Pro para lógica complexa
-        return genai.GenerativeModel('gemini-1.5-pro')
-    except:
+        if "GEMINI_API_KEY" in st.secrets:
+            genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+            return genai.GenerativeModel('gemini-1.5-flash')
+    except Exception as e:
+        st.error(f"AI Error: {e}")
         return None
+    return None
 
-engine = setup_engine()
+model = setup_engine()
 
-# --- INTERFACE ---
-st.markdown("<h1 class='main-header'>VIDIOM <span class='accent'>AI</span></h1>", unsafe_allow_html=True)
-st.markdown("<p style='color:#666; margin-bottom:30px;'>ESTRATÉGIA DE RETENÇÃO E GERAÇÃO S-TIER</p>", unsafe_allow_html=True)
+# --- EXTRACT YOUTUBE ID ---
+def extrair_id(url):
+    pattern = r'(?:v=|\/)([0-9A-Za-z_-]{11}).*'
+    match = re.search(pattern, url)
+    return match.group(1) if match else None
 
-with st.sidebar:
-    st.markdown("### 🛠️ CONFIGURAÇÕES")
-    token = st.text_input("CHAVE DE ACESSO", type="password")
-    st.markdown("---")
-    st.info("SISTEMA DE GERAÇÃO ULTRA-FAST ATIVO")
-
-if not token:
-    st.warning("🔐 Digite o Token para acessar o motor de elite.")
-else:
-    tab1, tab2, tab3 = st.tabs(["🧬 CORTES VIRAIS", "🖼️ IMAGENS PREMIUM", "🎬 VÍDEO CINEMÁTICO"])
-
-    # ABA 1: O NOSSO DIFERENCIAL (A IDEIA QUE VAI VENCER)
-    with tab1:
-        st.markdown("### 🧪 ANÁLISE DE RETENÇÃO PSICOLÓGICA")
-        target_link = st.text_input("LINK DO CONTEÚDO (Youtube/TikTok/Insta/Kwai)")
-        
-        if st.button("EXTRAIR ESTRATÉGIA"):
-            if engine:
-                with st.status("Executando Engenharia Reversa do Algoritmo...", expanded=True):
-                    prompt = f"""
-                    Aja como um Diretor de Viralização de alto nível. Analise: {target_link}.
-                    Sua missão é criar 2 cortes que forcem o usuário a assistir até o fim.
-                    Entrega:
-                    1. GANCHO DE IMPACTO (O que falar nos primeiros 2 segundos).
-                    2. ROTEIRO DE EDIÇÃO (Onde colocar B-roll, zoom e efeitos).
-                    3. TEXTO DE LEGENDA DINÂMICA (Estilo Alex Hormozi).
-                    Seja agressivo na persuasão.
-                    """
-                    response = engine.generate_content(prompt)
-                    st.write(response.text)
-            else:
-                st.error("ERRO DE API: VERIFIQUE SUA CHAVE NO STREAMLIT.")
-
-    # ABA 2: IMAGEM (FLUX ENGINE)
-    with tab2:
-        st.markdown("### 🎨 GERAÇÃO VISUAL")
-        p_img = st.text_input("PROMPT PARA IMAGEM (ALTA FIDELIDADE)")
-        if st.button("GERAR ARTE"):
-            seed = random.randint(100, 99999)
-            # Flux é o modelo que os profissionais usam agora
-            img_url = f"https://image.pollinations.ai/prompt/{urllib.parse.quote(p_img)}?width=1024&height=1024&nologo=true&seed={seed}&model=flux"
-            st.image(img_url, caption="RENDER FINALIZADO")
-
-    # ABA 3: VÍDEO (REPLICATE-BASED)
-    with tab3:
-        st.markdown("### 🎥 GERAÇÃO DE MOVIMENTO")
-        p_vid = st.text_input("PROMPT PARA VÍDEO (USE INGLÊS PARA MÁXIMA PERFORMANCE)")
-        
-        if st.button("RENDERIZAR VÍDEO"):
-            with st.spinner("PROCESSANDO FRAMES..."):
-                v_seed = random.randint(100, 9999)
-                v_url = f"https://pollinations.ai/p/{urllib.parse.quote(p_vid)}?width=1280&height=720&model=video&seed={v_seed}"
-                
-                # PROTEÇÃO ANTI-REDIRECIONAMENTO: Player Nativo Streamlit
-                st.markdown(f"**LINK DO RENDER:** [DOWNLOAD MP4]({v_url})")
-                st.video(v_url) 
+# --- UI HEADER ---
+st.title("🚀 VIDIOM AI – Viral Video Engine")
+st.markdown("### Turn Any Video Into Viral Shorts in Seconds")
 
 st.markdown("---")
-st.markdown("<p style='text-align:center; color:#333;'>VIDIOM AI © 2026 - TECNOLOGIA EXCLUSIVA</p>", unsafe_allow_html=True)
+
+col1, col2 = st.columns(2)
+
+# --- LEFT SIDE ---
+with col1:
+    st.subheader("📥 Video Input")
+
+    url_input = st.text_input("Paste YouTube link:")
+
+    estilo = st.selectbox(
+        "Choose Style:",
+        ["Hormozi Style", "Minimal", "High Impact", "Podcast"]
+    )
+
+    if st.button("🚀 Generate Viral Clip"):
+
+        if not url_input:
+            st.warning("Insert a valid video link.")
+        elif not model:
+            st.error("API error. Check your key.")
+        else:
+            with st.status("Analyzing video...", expanded=True) as status:
+
+                video_id = extrair_id(url_input)
+                transcricao = ""
+
+                # --- GET TRANSCRIPT ---
+                if video_id:
+                    try:
+                        st.write("Extracting transcript...")
+                        t = YouTubeTranscriptApi.get_transcript(video_id, languages=['en', 'pt'])
+                        transcricao = " ".join([i['text'] for i in t])
+                    except:
+                        st.write("No transcript found. Using AI inference.")
+
+                # --- PROMPT PROFISSIONAL ---
+                prompt = f"""
+You are a world-class viral content strategist specialized in TikTok, Instagram Reels, and YouTube Shorts.
+
+Your job is to IDENTIFY the most addictive and high-retention moment from a video.
+
+Video URL: {url_input}
+
+Transcript:
+{transcricao[:3000]}
+
+Analyze deeply using:
+- Curiosity gaps
+- Emotional spikes
+- Controversy
+- Storytelling tension
+- Pattern interrupts
+
+OUTPUT:
+
+🔥 HOOK (first 1–3 seconds):
+Write a SCROLL-STOPPING opening line.
+
+⏱️ BEST CLIP:
+Give the exact timestamp (start - end) of the most viral moment.
+
+🎬 CAPTION SCRIPT:
+Rewrite the speech into short, punchy subtitles optimized for retention.
+Break lines every 3–6 words.
+
+✨ POWER WORDS:
+Highlight impactful words in UPPERCASE.
+
+🧠 PSYCHOLOGY:
+Explain WHY this clip will retain attention.
+
+⚡ VIRAL SCORE:
+Give a score from 1 to 10.
+
+Also suggest 2 ALTERNATIVE hooks for A/B testing.
+
+Style: {estilo}
+"""
+
+                try:
+                    st.write("Generating viral script...")
+                    res = model.generate_content(prompt)
+
+                    st.session_state.resultado = res.text
+                    status.update(label="Done!", state="complete")
+
+                except Exception as e:
+                    st.error(f"AI Error: {e}")
+
+# --- RIGHT SIDE ---
+with col2:
+    st.subheader("🎬 Viral Output")
+
+    if "resultado" in st.session_state:
+        st.markdown(f'<div class="script-box">{st.session_state.resultado}</div>', unsafe_allow_html=True)
+
+        st.download_button(
+            "📥 Download Script",
+            st.session_state.resultado,
+            file_name="viral_script.txt"
+        )
+    else:
+        st.info("Your viral script will appear here.")
+
+# --- FOOTER ---
+st.markdown("---")
+st.caption("VIDIOM AI © 2026 – AI Viral Content Engine")
