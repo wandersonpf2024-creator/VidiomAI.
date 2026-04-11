@@ -35,7 +35,7 @@ def setup_engine():
     try:
         if "GEMINI_API_KEY" in st.secrets:
             genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-            return genai.GenerativeModel('gemini-pro')  # ✅ modelo que funciona
+            return genai.GenerativeModel("gemini-1.5-flash-latest")
     except Exception as e:
         st.error(f"AI Error: {e}")
         return None
@@ -137,8 +137,8 @@ Style: {estilo}
 
                 try:
                     st.write("Generating viral script...")
-                    res = model.generate_content(prompt)
-
+                    res = model.generate_content("Hello")
+st.write(res.text)
                     st.session_state.resultado = res.text
                     status.update(label="Done!", state="complete")
 
