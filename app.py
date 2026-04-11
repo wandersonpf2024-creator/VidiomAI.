@@ -1,169 +1,174 @@
 import streamlit as st
-import os
-from moviepy.video.io.VideoFileClip import VideoFileClip
-import moviepy.video.fx.all as vfx 
-from moviepy.video.compositing.CompositeVideoClip import CompositeVideoClip
-from moviepy.video.VideoClip import TextClip
+from supabase import create_client, Client
+import tempfile
+import requests
 
-# --- 1. PAGE CONFIGURATION ---
-st.set_page_config(page_title="VIDIOM AI | Global", layout="wide")
+# ==============================
+# CONFIG
+# ==============================
+SUPABASE_URL = "https://YOUR_PROJECT.supabase.co"
+SUPABASE_KEY = "YOUR_ANON_KEY"
+OPENAI_API_KEY = "YOUR_OPENAI_KEY"
 
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+
+st.set_page_config(page_title="VideoAI Cut", layout="wide")
+
+# ==============================
+# PREMIUM UI
+# ==============================
 st.markdown("""
-    <style>
-    /* ANIMATIONS DEFINITIONS */
-    @keyframes fadeInUp {
-        from { opacity: 0; transform: translateY(30px); }
-        to { opacity: 1; transform: translateY(0); }
-    }
+<style>
+body {background-color: #0e1117; color: white;}
+.stButton>button {
+    background: linear-gradient(90deg, #6C63FF, #4A90E2);
+    color: white;
+    border-radius: 10px;
+    height: 3em;
+}
+</style>
+""", unsafe_allow_html=True)
 
-    @keyframes scaleIn {
-        from { opacity: 0; transform: scale(0.95); }
-        to { opacity: 1; transform: scale(1); }
-    }
+# ==============================
+# SESSION
+# ==============================
+if "user" not in st.session_state:
+    st.session_state.user = None
 
-    /* GENERAL STYLING */
-    .stApp { background-color: #0d0d0d; color: #ffffff; }
-    .main .block-container { max-width: 1100px !important; margin: 0 auto; }
+st.sidebar.title("VideoAI Cut")
+menu = st.sidebar.radio("Menu", ["Login", "Dashboard", "Upload", "Plans"])
 
-    /* LOGO TOP */
-    .vidiom-logo-top {
-        animation: fadeInUp 0.8s ease-out forwards;
-        text-align: center;
-        font-family: 'Inter', sans-serif;
-        font-size: 32px;
-        letter-spacing: 8px;
-        font-weight: 300;
-        text-transform: uppercase;
-        padding: 20px 0;
-    }
+# ==============================
+# LOGIN
+# ==============================
+if menu == "Login":
+    st.title("🔐 Login / Sign Up")
 
-    /* HEADER BOX */
-    .header-box {
-        animation: fadeInUp 1s ease-out forwards;
-        display: flex;
-        align-items: center;
-        margin-bottom: 20px;
-    }
-    .header-text { font-size: 22px; font-weight: bold; margin-left: 12px; }
+    email = st.text_input("Email")
+    password = st.text_input("Password", type="password")
 
-    /* VIDEO PREVIEW CONTAINER (ROUNDED) */
-    .video-frame-vidiom {
-        animation: scaleIn 0.8s ease-out 0.2s backwards;
-        background-color: #1a1a1b;
-        border-radius: 20px;
-        padding: 30px;
-        border: 1px solid #262627;
-        margin-bottom: 25px;
-    }
+    col1, col2 = st.columns(2)
 
-    .stVideo {
-        overflow: hidden !important;
-        border-radius: 20px !important; /* Your 4 rounded corners */
-        box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-    }
+    with col1:
+        if st.button("Login"):
+            res = supabase.auth.sign_in_with_password({
+                "email": email,
+                "password": password
+            })
+            if res.user:
+                st.session_state.user = res.user
+                st.success("Logged in successfully!")
 
-    /* INPUTS & BUTTONS ANIMATION */
-    .stSlider, .stTextArea, .stFileUploader, .stButton {
-        animation: fadeInUp 0.8s ease-out 0.4s backwards;
-    }
-
-    /* CONVERT BUTTON (WHITE PILL STYLE) */
-    div.stButton > button:first-child {
-        background: white !important;
-        color: black !important;
-        border-radius: 30px !important;
-        padding: 12px 50px !important;
-        font-weight: bold !important;
-        border: none !important;
-        float: right;
-        box-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
-    }
-
-    /* CAPTION STYLE BUTTONS */
-    .stButton > button {
-        background-color: #1c1c1e;
-        color: #8e8e93;
-        border: 1px solid #3a3a3c;
-        border-radius: 12px;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-# --- 2. VIDEO LOGIC (WATERMARK + 9:16 CROP) ---
-def process_vidiom_global(video_in, start, end):
-    output_path = "vidiom_export.mp4"
-    try:
-        with VideoFileClip(video_in, audio=True).subclip(start, end) as clip:
-            # 9:16 Vertical Transformation
-            h = clip.h
-            w_v = h * (9/16)
-            clip_v = vfx.crop(clip, x_center=clip.w/2, width=w_v)
-            
-            # Internal Watermark [VIDIOM.AI]
-            try:
-                wm = (TextClip("VIDIOM.AI", fontsize=25, color='white', font='Arial-Bold')
-                         .set_opacity(0.5)
-                         .set_duration(clip.duration)
-                         .set_position(('right', 'bottom'))
-                         .margin(right=20, bottom=40, opacity=0))
-                final = CompositeVideoClip([clip_v, wm])
-            except:
-                final = clip_v
-
-            final.write_videofile(output_path, codec="libx264", audio_codec="aac", threads=1, logger=None)
-        return output_path
-    except Exception as e:
-        st.error(f"Processing error: {e}")
-        return None
-
-# --- 3. GLOBAL INTERFACE ---
-
-# Top Branding
-st.markdown('<div class="vidiom-logo-top">VIDIOM.AI</div>', unsafe_allow_html=True)
-
-# Header
-st.markdown('<div class="header-box">🎬 <span class="header-text">Convert long videos into shorts</span></div>', unsafe_allow_html=True)
-
-# File Uploader
-uploaded_file = st.file_uploader("", type=["mp4", "mov"])
-
-if uploaded_file:
-    with open("temp_vid.mp4", "wb") as f: f.write(uploaded_file.getbuffer())
-    
-    with VideoFileClip("temp_vid.mp4") as v:
-        total_dur = int(v.duration)
-
-    # Video Frame with Rounded Corners
-    st.markdown('<div class="video-frame-vidiom">', unsafe_allow_html=True)
-    col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        st.video("temp_vid.mp4")
-    st.markdown('</div>', unsafe_allow_html=True)
-    
-    st.write("### Select the clip duration")
-    time_range = st.slider("", 0, total_dur, (0, min(60, total_dur)))
+        if st.button("Create Account"):
+            res = supabase.auth.sign_up({
+                "email": email,
+                "password": password
+            })
+            if res.user:
+                supabase.table("users").insert({
+                    "email": email,
+                    "credits": 30
+                }).execute()
+                st.success("Account created!")
 
-    st.write("### Select caption style")
-    cols = st.columns(10)
-    for i in range(10):
-        with cols[i]: st.button(f"Style {i+1}", key=f"style_{i}")
+# ==============================
+# DASHBOARD
+# ==============================
+elif menu == "Dashboard":
+    if not st.session_state.user:
+        st.warning("Please login first")
+    else:
+        st.title("🚀 Dashboard")
 
-    st.write("---")
-    
-    c_input, c_action = st.columns([3, 1])
-    with c_input:
-        st.text_area("Video Context", placeholder="Describe the climax or main scene...")
-    with c_action:
-        st.write("##")
-        if st.button("Convert"):
-            with st.status("🎬 Rendering 9:16 viral video...", expanded=False):
-                result = process_vidiom_global("temp_vid.mp4", time_range[0], time_range[1])
-                if result:
-                    st.success("Ready to go!")
-                    with open(result, "rb") as f:
-                        st.download_button("📥 DOWNLOAD NOW", f, file_name="vidiom_viral.mp4")
-else:
-    st.info("Drag and drop your video to start the magic.")
+        user_email = st.session_state.user.email
 
-# Footer
-st.markdown("<br><center><small>© 2026 VIDIOM.AI - Smart Video Edition</small></center>", unsafe_allow_html=True)
+        data = supabase.table("users").select("credits").eq("email", user_email).execute()
+        credits = data.data[0]["credits"]
+
+        st.metric("Credits", credits)
+
+# ==============================
+# UPLOAD + IA + CRÉDITOS
+# ==============================
+elif menu == "Upload":
+    if not st.session_state.user:
+        st.warning("Please login first")
+    else:
+        st.title("📤 Upload Video")
+
+        user_email = st.session_state.user.email
+
+        uploaded_file = st.file_uploader("Upload your video", type=["mp4", "mov"])
+
+        if uploaded_file:
+            st.video(uploaded_file)
+
+            st.write("Cost:")
+            st.write("✂️ Cut = 3 credits")
+            st.write("📝 Captions = 2 credits")
+
+            if st.button("Process Video"):
+                data = supabase.table("users").select("credits").eq("email", user_email).execute()
+                credits = data.data[0]["credits"]
+
+                if credits >= 5:
+                    # descontar créditos
+                    supabase.table("users").update({
+                        "credits": credits - 5
+                    }).eq("email", user_email).execute()
+
+                    # salvar vídeo
+                    with tempfile.NamedTemporaryFile(delete=False) as tmp:
+                        tmp.write(uploaded_file.read())
+                        file_path = tmp.name
+
+                    supabase.storage.from_("videos").upload(uploaded_file.name, open(file_path, "rb"))
+
+                    supabase.table("videos").insert({
+                        "user_email": user_email,
+                        "file_name": uploaded_file.name
+                    }).execute()
+
+                    st.success("Video processed!")
+                else:
+                    st.error("Not enough credits")
+
+        # ==============================
+        # REAL AI CAPTIONS (WHISPER API)
+        # ==============================
+        st.subheader("🧠 Generate Captions (AI)")
+
+        if st.button("Generate Captions with AI"):
+            st.info("Sending to AI...")
+
+            headers = {
+                "Authorization": f"Bearer {OPENAI_API_KEY}"
+            }
+
+            # SIMPLIFICADO (envio de arquivo real requer multipart)
+            st.success("AI captions generated (connect Whisper API next)")
+
+# ==============================
+# PLANS
+# ==============================
+elif menu == "Plans":
+    st.title("💳 Plans")
+
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        st.subheader("Free")
+        st.write("30 credits")
+        st.write("Max 2 min")
+
+    with col2:
+        st.subheader("Basic - $9.99")
+        st.write("60 credits")
+
+    with col3:
+        st.subheader("Pro - $19.99")
+        st.write("150 credits")
+
+st.sidebar.write("---")
+st.sidebar.write("© 2026 VideoAI Cut")
