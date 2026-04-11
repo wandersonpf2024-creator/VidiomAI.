@@ -4,96 +4,135 @@ import re
 from groq import Groq
 from moviepy.video.io.VideoFileClip import VideoFileClip
 
-# --- SETUP E ESTILIZAÇÃO (MUDOU O TÍTULO) ---
-st.set_page_config(page_title="VIDIOM AI | MVP Funcional", layout="wide")
-st.markdown("""<style>.stTextArea textarea { background-color: #1e2129; color: white; }.stButton>button { background-color: #ff4b4b; color: white; }.stVideo { width: 100%; border-radius: 5px; margin-bottom: 20px; }</style>""", unsafe_allow_html=True)
+# --- CONFIGURAÇÃO ESTÉTICA (CSS MODERNO) ---
+st.set_page_config(page_title="VIDIOM AI | Editor Pro", layout="wide")
 
-# Segurança
-if "GROQ_API_KEY" not in st.secrets:
-    st.error("Configure a 'GROQ_API_KEY' nas Secrets!")
-    st.stop()
+st.markdown("""
+    <style>
+    /* 1. Fundo e Fontes */
+    .stApp { background-color: #05070a; color: #e2e8f0; }
+    
+    /* 2. Barra Superior e Títulos */
+    .main-title { font-size: 28px; font-weight: 700; margin-bottom: 20px; color: #ffffff; }
+    
+    /* 3. Estilização do File Uploader (Área de Drag & Drop) */
+    div[data-testid="stFileUploader"] {
+        background-color: #0f172a;
+        border: 1px solid #1e293b;
+        border-radius: 12px;
+        padding: 30px;
+    }
 
-client = Groq(api_key=st.secrets["GROQ_API_KEY"])
+    /* 4. Botão Converter Estilo "Glow" */
+    .stButton>button {
+        width: 100%;
+        background: #ffffff;
+        color: #000000 !important;
+        border-radius: 50px;
+        padding: 12px 24px;
+        font-weight: 700;
+        border: none;
+        transition: 0.3s;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+    .stButton>button:hover {
+        background: #f8fafc;
+        transform: translateY(-2px);
+        box-shadow: 0 10px 20px -10px rgba(255, 255, 255, 0.3);
+    }
 
-# --- FUNÇÃO DE EDIÇÃO (MUDOU, MAIS LEVE) ---
-def fazer_corte_ia(video_path, start, end):
-    output_path = "corte_viral.mp4"
+    /* 5. Seletor de Legenda (Cards) */
+    .stSelectbox div[data-baseweb="select"] {
+        background-color: #1e293b;
+        border-radius: 8px;
+    }
+    
+    /* 6. Inputs de Texto e Sliders */
+    .stTextArea textarea { background-color: #0f172a; border: 1px solid #334155; color: white; border-radius: 10px; }
+    .stSlider > div > div > div > div { background-color: #6366f1; }
+    
+    /* Estilo para as opções de legenda mockadas */
+    .legenda-box {
+        background: #1e293b;
+        border: 1px solid #334155;
+        border-radius: 8px;
+        padding: 10px;
+        text-align: center;
+        font-size: 12px;
+        cursor: pointer;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+# --- LÓGICA DE BACKEND ---
+def processar_corte(video_path, start, end):
+    output = "corte_final.mp4"
     try:
-        # Força o MoviePy a ler o arquivo de forma "preguiçosa" para salvar memória
-        with VideoFileClip(video_path, audio=True).subclip(start, end) as corte:
-            # Reduz a qualidade para 720p (vertical) para garantir o download no grátis
-            st.write("Processando o vídeo para download...")
-            # codec libx264 é universalmente aceito no TikTok/Reels
-            corte.write_videofile(output_path, codec="libx264", audio_codec="aac", temp_audiofile='temp-audio.m4a', remove_temp=True, logger=None, threads=1)
-        return output_path
+        with VideoFileClip(video_path, audio=True).subclip(start, end) as video:
+            video.write_videofile(output, codec="libx264", audio_codec="aac", temp_audiofile='temp-audio.m4a', remove_temp=True, logger=None)
+        return output
     except Exception as e:
-        st.error(f"Erro técnico no corte: {e}")
+        st.error(f"Erro: {e}")
         return None
 
 # --- INTERFACE ---
-st.title("🤖 VIDIOM AI - Validador de Negócio")
-st.markdown("### 1️⃣ Suba o seu vídeo curto (MP4/MOV)")
-st.info("No plano grátis, vídeos menores que 3 minutos funcionam melhor.")
-video_file = st.file_uploader("", type=["mp4", "mov"])
+st.markdown('<div class="main-title">🎬 Converta vídeos longos em vídeos curtos</div>', unsafe_allow_html=True)
 
-if video_file:
-    # Salva temporariamente
-    with open("temp_input.mp4", "wb") as f: f.write(video_file.getbuffer())
+# Container Principal
+with st.container():
+    # Topo: Upload simplificado
+    video_file = st.file_uploader("", type=["mp4", "mov"])
     
-    # Validação de duração (Crucial para o grátis)
-    with VideoFileClip("temp_input.mp4") as v:
-        duracao_real = int(v.duration)
-    
-    if duracao_real > 180: # Limite de 3 minutos no MVP grátis
-        st.error("Desculpe, no plano grátis do MVP, vídeos de até 3 minutos são processados. Tente um arquivo menor.")
-        st.stop()
+    if video_file:
+        with open("video_vidiom.mp4", "wb") as f:
+            f.write(video_file.getbuffer())
         
-    st.markdown("### 2️⃣ O que acontece no vídeo?")
-    contexto = st.text_area(label="Descreva o vídeo:", placeholder="Ex: Silver Cop vai comprar a Porsche do Balestrin e fala sobre o motor.", height=150)
+        with VideoFileClip("video_vidiom.mp4") as v:
+            duracao_max = int(v.duration)
 
-    if st.button("✨ GERAR VÍDEO COMPLETO"):
-        if not contexto:
-            st.warning("A IA precisa do contexto!")
-        else:
-            with st.status("IA Analisando e Processando...", expanded=True) as status:
-                # Prompt SUPER simplificado (NÃO TIRA A CAPA)
-                prompt = f"""
-                Duração total: {duracao_real}s.
-                Contexto: "{contexto}".
-                
-                Com base na descrição, escolha o melhor intervalo de até 30 segundos.
-                Responda APENAS: INICIO:X, FIM:Y.
-                Onde X e Y são números inteiros.
-                Não escreva mais nada.
-                """
-                
-                # Chamada da Groq (Llama 3.3)
-                try:
-                    chat = client.chat.completions.create(messages=[{"role": "user", "content": prompt}], model="llama-3.3-70b-versatile")
-                    resposta = chat.choices[0].message.content
-                    
-                    st.write(f"🧠 IA Definiu o Corte: {resposta}")
-                    
-                    # Regex mais robusto para pegar os números
-                    start_ia = int(re.search(r"INICIO:(\d+)", resposta).group(1))
-                    end_ia = int(re.search(r"FIM:(\d+)", resposta).group(1))
-                    
-                    # Chama o processador de corte puro
-                    video_pronto = fazer_corte_ia("temp_input.mp4", start_ia, end_ia)
-                    
-                    if video_pronto:
-                        status.update(label="O corte está pronto para download!", state="complete")
-                        with open(video_pronto, "rb") as f:
-                            st.video(f)
-                            st.download_button("📥 BAIXAR CORTE VIRAL", f, file_name="vidiom_ia_corte.mp4")
-                        
-                        # Limpeza dos arquivos para libertar RAM do servidor
-                        if os.path.exists("temp_input.mp4"): os.remove("temp_input.mp4")
-                        if os.path.exists("corte_viral.mp4"): os.remove("corte_viral.mp4")
+        # PLAYER DE VÍDEO (Centralizado como na imagem)
+        st.video("video_vidiom.mp4")
 
-                except Exception as e:
-                    # Melhoria no feedback de erro para o usuário
-                    if "timed out" in str(e) or "overload" in str(e):
-                        st.error("A IA demorou demais para pensar devido à alta demanda do servidor gratuito. Tente novamente mais tarde.")
-                    else:
-                        st.error(f"Erro na análise: {e}. A IA se confundiu na resposta ou o tempo expirou. Tente novamente.")
+        st.write("---")
+        
+        # ÁREA DE SELEÇÃO
+        st.markdown("### 🎞️ Selecione a parte que deseja converter")
+        tempo = st.slider("", 0, duracao_max, (0, min(60, duracao_max)))
+        st.caption(f"Duração selecionada: {tempo[1] - tempo[0]} segundos")
+
+        st.write("---")
+
+        # MODELOS DE LEGENDA (Visual)
+        st.markdown("### ✍️ Selecionar modelo de legenda")
+        cols = st.columns(6)
+        with cols[0]: st.button("Default", key="l1")
+        with cols[1]: st.button("Glow", key="l2")
+        with cols[2]: st.button("Impact", key="l3")
+        with cols[3]: st.button("Cyber", key="l4")
+        with cols[4]: st.button("Retro", key="l5")
+        with cols[5]: st.button("Clean", key="l6")
+
+        st.write("---")
+
+        # DURAÇÃO E CONVERSÃO
+        col_txt, col_btn = st.columns([2, 1])
+        
+        with col_txt:
+            contexto = st.text_area("O que acontece no vídeo? (IA Context)", placeholder="Explique para a IA o que focar...")
+        
+        with col_btn:
+            st.write("##") # Espaçador
+            if st.button("✨ Converter"):
+                with st.status("Gerando seu corte viral...", expanded=True):
+                    final_clip = processar_corte("video_vidiom.mp4", tempo[0], tempo[1])
+                    if final_clip:
+                        st.success("Pronto!")
+                        with open(final_clip, "rb") as f:
+                            st.download_button("📥 BAIXAR AGORA", f, file_name="vidiom_pro.mp4")
+    else:
+        st.image("https://img.freepik.com/free-vector/upload-concept-illustration_114360-1205.jpg", width=200)
+        st.info("Arraste um vídeo MP4 para começar a mágica.")
+
+# Rodapé
+st.markdown("<br><br><center><small>VIDIOM AI - O futuro da edição automática</small></center>", unsafe_allow_html=True)
