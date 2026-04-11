@@ -3,9 +3,9 @@ import os
 from moviepy.video.io.VideoFileClip import VideoFileClip
 import moviepy.video.fx.all as vfx 
 from moviepy.video.compositing.CompositeVideoClip import CompositeVideoClip
-from moviepy.video.VideoClip import TextClip
+from moviepy.video.VideoClip import ImageClip # Importamos ImageClip para a logo no vídeo
 
-# --- 1. CONFIGURAÇÃO DE TEMA DARK ---
+# --- 1. CONFIGURAÇÃO DE TEMA DARK (ESTILO MINDVIDEO) ---
 st.set_page_config(page_title="VIDIOM AI", layout="wide")
 
 st.markdown("""
@@ -22,22 +22,12 @@ st.markdown("""
         border-right: 1px solid #1e1e1e;
     }
 
-    /* LOGO VIDIOM.AI NO TOPO DA BARRA LATERAL */
-    .vidiom-logo-sidebar {
+    /* CONTAINER DA NOVA LOGO NA SIDEBAR */
+    .logo-container-sidebar {
         text-align: center;
-        font-family: 'Inter', sans-serif;
-        font-size: 22px;
-        letter-spacing: 5px;
-        font-weight: 300;
-        text-transform: uppercase;
-        padding: 20px 0;
-        background: linear-gradient(to right, #d9d9d9 0%, #ffffff 50%, #d9d9d9 100%);
-        background-size: 200% auto;
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        animation: shimmer 4s infinite linear;
+        padding: 10px 0;
+        margin-bottom: 20px;
     }
-    @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
 
     /* MENU ITEMS ESTILO MINDVIDEO */
     .menu-item {
@@ -59,7 +49,7 @@ st.markdown("""
         font-weight: bold;
     }
 
-    /* BOTÃO UPGRADE (ROXO/AZUL IGUAL À IMAGEM) */
+    /* BOTÃO UPGRADE (ROXO/AZUL) */
     .btn-upgrade {
         background: linear-gradient(90deg, #6366f1 0%, #a855f7 100%);
         color: white;
@@ -83,90 +73,125 @@ st.markdown("""
         padding: 20px;
         border: 1px solid #262627;
     }
-
-    /* INPUTS E SLIDERS DARK */
-    .stSlider > div > div > div > div { background-color: #6366f1; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. MOTOR DE VÍDEO (FIXED) ---
-def process_vidiom_core(video_path, start, end):
-    output = "vidiom_render.mp4"
+# --- 2. MOTOR DE VÍDEO (AGORA COM MARCA D'ÁGUA EM IMAGEM) ---
+def process_vidiom_with_image_watermark(video_path, start, end):
+    output = "vidiom_pro_branded.mp4"
     try:
+        # Carrega o vídeo original
         clip = VideoFileClip(video_path).subclip(start, end)
+        
+        # 1. Ajuste de dimensões para 9:16 (Sempre Par)
         h = clip.h
         w = int(h * (9/16))
-        if w % 2 != 0: w -= 1
-        final = vfx.crop(clip, x_center=clip.w/2, width=w).copy()
-        final.write_videofile(output, codec="libx264", audio_codec="aac", fps=24, logger=None, ffmpeg_params=["-pix_fmt", "yuv420p"])
+        if w % 2 != 0: w -= 1 # Garante dimensão par
+        
+        # 2. Corte centralizado
+        final_clip = vfx.crop(clip, x_center=clip.w/2, width=w).copy()
+        
+        # --- APLICAÇÃO DA LOGO COMO MARCA D'ÁGUA ---
+        logo_path = "lonova.png" # Caminho da sua logo
+        
+        if os.path.exists(logo_path):
+            try:
+                # Carrega a logo como ImageClip
+                logo = ImageClip(logo_path).set_duration(final_clip.duration).set_opacity(0.7) # 70% de opacidade
+                
+                # Redimensiona a logo para ficar PEQUENA (ex: 20% da largura do vídeo)
+                logo = vfx.resize(logo, width=int(final_clip.w * 0.20))
+                
+                # Posiciona no Canto Inferior Direito (com 20px de margem)
+                logo = logo.set_position(("right", "bottom")).margin(right=20, bottom=20, opacity=0)
+                
+                # Sobrepõe a logo no vídeo
+                result = CompositeVideoClip([final_clip, logo])
+            except Exception as logo_err:
+                st.warning(f"Note: Error applying logo watermark. Generating clean video. (Error: {logo_err})")
+                result = final_clip
+        else:
+            st.error(f"Error: {logo_path} not found. Clean video generated.")
+            result = final_clip
+
+        # 3. Exportação com formato compatível
+        result.write_videofile(
+            output, 
+            codec="libx264", 
+            audio_codec="aac", 
+            fps=24, 
+            logger=None, 
+            ffmpeg_params=["-pix_fmt", "yuv420p"] # Crítico para visibilidade no iOS/Chrome
+        )
+        
         clip.close()
+        result.close()
         return output
     except Exception as e:
-        st.error(f"Error: {e}")
+        st.error(f"Render Error: {e}")
         return None
 
 # --- 3. BARRA LATERAL (SIDEBAR) ---
 with st.sidebar:
-    # Nome VIDIOM.AI no lugar do MindVideo
-    st.markdown('<div class="vidiom-logo-sidebar">VIDIOM.AI</div>', unsafe_allow_html=True)
+    st.markdown('<div class="logo-container-sidebar">', unsafe_allow_html=True)
+    # Tenta carregar sua imagem da logo na sidebar
+    try:
+        st.image("lonova.png", width=200)
+    except:
+        st.markdown("<h2 style='text-align:center; color:white;'>VIDIOM.AI</h2>", unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
     
-    st.markdown('<div class="menu-item active-menu">🏠 Creative Studio</div>', unsafe_allow_html=True)
-    st.markdown('<div class="menu-item">🌍 Explore</div>', unsafe_allow_html=True)
-    st.markdown('<div class="menu-item">📁 My Creations</div>', unsafe_allow_html=True)
+    st.markdown('<div class="menu-item active-menu">🏠 Estúdio Criativo</div>', unsafe_allow_html=True)
+    st.markdown('<div class="menu-item">📁 Minhas Criações</div>', unsafe_allow_html=True)
     st.write("---")
     
-    # Navegação de funcionalidades
-    nav = st.radio("Tools", ["Video to Short", "Text to Video", "AI Avatar", "Pricing Plan"], label_visibility="collapsed")
+    # Navegação de ferramentas
+    nav = st.radio("Ferramentas", ["Cortar Vídeo", "Planos de Upgrade"], label_visibility="collapsed")
     
     st.write("---")
-    st.markdown('<a class="btn-upgrade">🚀 Upgrade Now</a>', unsafe_allow_html=True)
-    st.markdown('<div class="menu-item" style="margin-top:10px;">🎁 Refer a Friend</div>', unsafe_allow_html=True)
+    st.markdown('<a class="btn-upgrade">🚀 Faça Upgrade Agora</a>', unsafe_allow_html=True)
 
 # --- 4. ÁREA PRINCIPAL (DASHBOARD) ---
 
-if nav == "Video to Short":
+if nav == "Cortar Vídeo":
     st.markdown('<div class="main-container">', unsafe_allow_html=True)
-    st.title("🎬 Video to Short")
-    st.write("Convert your landscape videos into viral 9:16 content.")
+    st.title("🎬 Estúdio de Cortes Virais")
+    st.write("Converta vídeos longos em cortes de 9:16 com sua marca d'água profissional.")
     
     uploaded = st.file_uploader("", type=["mp4", "mov"])
     
     if uploaded:
-        with open("input_vidiom.mp4", "wb") as f: f.write(uploaded.getbuffer())
+        with open("input.mp4", "wb") as f: f.write(uploaded.getbuffer())
         
         col_v, col_edit = st.columns([1.5, 1])
         
         with col_v:
             st.markdown('<div class="video-card">', unsafe_allow_html=True)
-            st.video("input_vidiom.mp4")
+            st.video("input.mp4")
             st.markdown('</div>', unsafe_allow_html=True)
         
         with col_edit:
-            with VideoFileClip("input_vidiom.mp4") as v_temp:
+            with VideoFileClip("input.mp4") as v_temp:
                 dur = int(v_temp.duration)
             
-            st.write("### Settings")
-            cut_range = st.slider("Select Segment (Seconds)", 0, dur, (0, min(30, dur)))
+            st.write("### Configurações de Corte")
+            cut_range = st.slider("Selecione o segmento (segundos)", 0, dur, (0, min(15, dur)))
             
-            if st.button("Generate Viral Short", use_container_width=True, type="primary"):
-                with st.status("Creating your short..."):
-                    res_path = process_vidiom_core("input_vidiom.mp4", cut_range[0], cut_range[1])
+            st.write("---")
+            if st.button("Gerar Corte com Marca d'água", use_container_width=True, type="primary"):
+                with st.status("🎬 Renderizando vídeo 9:16 com sua logo..."):
+                    res_path = process_vidiom_with_image_watermark("input.mp4", cut_range[0], cut_range[1])
                     if res_path:
-                        st.success("Ready to download!")
+                        st.success("Vídeo pronto para download!")
                         with open(res_path, "rb") as file_res:
-                            st.download_button("📥 DOWNLOAD VIDEO", file_res, file_name="vidiom_short.mp4", use_container_width=True)
+                            st.download_button(
+                                "📥 BAIXAR AGORA", 
+                                file_res, 
+                                file_name="vidiom_short.mp4", 
+                                use_container_width=True
+                            )
     st.markdown('</div>', unsafe_allow_html=True)
-
-elif nav == "Pricing Plan":
-    # Aqui entra aquela tabela de planos que fizemos antes
-    st.markdown('<h2 style="text-align:center;">Choose your plan</h2>', unsafe_allow_html=True)
-    # ... (o código dos planos entra aqui)
-    st.info("Plans page is active. Click on Editor to go back.")
-
-# Footer Estilo API
-with st.sidebar:
-    st.write("##")
-    cols_foot = st.columns(3)
-    cols_foot[0].write("🌐")
-    cols_foot[1].write("🎧")
-    cols_foot[2].write("API")
+else:
+    # Interface de Planos que fizemos anteriormente pode entrar aqui
+    st.markdown('<h2 style="text-align:center;">Página de Planos em Manutenção</h2>', unsafe_allow_html=True)
+    st.info("O editor de vídeo está funcional. Clique em 'Cortar Vídeo' na barra lateral.")
