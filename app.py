@@ -1,191 +1,105 @@
 import streamlit as st
-from supabase import create_client
-import tempfile
+import os
+from datetime import date
 
-# ==============================
-# CONFIG
-# ==============================
-SUPABASE_URL = st.secrets["SUPABASE_URL"]
-SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
+# --- CONFIGURAÇÃO VISUAL (ESTILO MONITOR PRO) ---
+st.set_page_config(page_title="VIDIOM AI | Subtitles", layout="wide")
 
-supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
-
-# ==============================
-# TESTE DE CONEXÃO
-# ==============================
-st.write("🔍 Testing connection...")
-
-try:
-    test = supabase.table("users").select("*").limit(1).execute()
-    st.success("✅ Connected to Supabase!")
-except Exception as e:
-    st.error("❌ Connection failed")
-
-# ==============================
-# APP CONFIG
-# ==============================
-st.set_page_config(page_title="VideoAI Cut", layout="wide")
-
-# ==============================
-# STYLE
-# ==============================
 st.markdown("""
-<style>
-body {background-color: #0e1117; color: white;}
-.stButton>button {
-    background: linear-gradient(90deg, #6C63FF, #4A90E2);
-    color: white;
-    border-radius: 10px;
-    height: 3em;
-}
-</style>
+    <style>
+    .stApp { background-color: #080808; color: #ffffff; }
+    header, [data-testid="stHeader"] { display: none !important; }
+    .stMainBlockContainer { padding: 0px !important; }
+
+    /* CABEÇALHO SUPERIOR */
+    .top-bar {
+        background-color: #000000;
+        border-bottom: 1px solid #1f1f1f;
+        padding: 10px 40px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        height: 65px;
+        position: fixed; width: 100%; top: 0; z-index: 999;
+    }
+
+    .limit-badge {
+        background-color: #1a1a1b;
+        padding: 5px 15px;
+        border-radius: 20px;
+        border: 1px solid #333;
+        font-size: 12px;
+    }
+
+    /* PAINÉIS */
+    .panel {
+        background-color: #0f0f10; border: 1px solid #1f1f1f;
+        border-radius: 12px; padding: 20px; height: 100%;
+    }
+    </style>
 """, unsafe_allow_html=True)
 
-# ==============================
-# SESSION
-# ==============================
-if "user" not in st.session_state:
-    st.session_state.user = None
+# --- CONTROLE DE LIMITE (SIMPLES) ---
+if 'videos_hoje' not in st.session_state:
+    st.session_state.videos_hoje = 0
 
-# ==============================
-# MENU
-# ==============================
-st.sidebar.title("VideoAI Cut")
-menu = st.sidebar.radio("Menu", ["Login", "Dashboard", "Upload", "Plans"])
+def incrementar_uso():
+    st.session_state.videos_hoje += 1
 
-# ==============================
-# LOGIN
-# ==============================
-if menu == "Login":
-    st.title("🔐 Login / Sign Up")
+# --- CABEÇALHO ---
+st.markdown(f"""
+    <div class="top-bar">
+        <div style="display: flex; align-items: center; gap: 15px;">
+            <span style="font-weight: 900; font-size: 22px;">🎞️ VIDIOM.AI</span>
+        </div>
+        <div style="display: flex; gap: 20px; align-items: center;">
+            <div class="limit-badge">Grátis: {st.session_state.videos_hoje}/3 vídeos hoje</div>
+            <div style="background-color: white; color: black; padding: 6px 15px; border-radius: 5px; font-weight: bold; font-size: 12px;">UPGRADE</div>
+        </div>
+    </div>
+""", unsafe_allow_html=True)
 
-    email = st.text_input("Email")
-    password = st.text_input("Password", type="password")
+# --- INTERFACE PRINCIPAL ---
+st.write("##") # Espaço para o header
+st.write("##")
 
-    col1, col2 = st.columns(2)
+if st.session_state.videos_hoje >= 3:
+    st.error("🚀 Você atingiu o limite de 3 vídeos diários! Faça o Upgrade para legendas ilimitadas.")
+else:
+    col1, col2 = st.columns([1.2, 2])
 
     with col1:
-        if st.button("Login"):
-            try:
-                res = supabase.auth.sign_in_with_password({
-                    "email": email,
-                    "password": password
-                })
-                if res.user:
-                    st.session_state.user = res.user
-                    st.success("Logged in successfully!")
-            except:
-                st.error("Login error")
+        st.markdown('<div class="panel">', unsafe_allow_html=True)
+        st.subheader("1. Subir Vídeo")
+        video_file = st.file_uploader("Arraste seu vídeo aqui", type=["mp4", "mov"], label_visibility="collapsed")
+        
+        if video_file:
+            st.write("---")
+            st.subheader("2. Escolha o Estilo")
+            estilo = st.radio("Estilos de Legenda:", 
+                             ["Viral Yellow (Hormozi)", "Minimalist White", "Bold Impact", "Netflix Style"])
+            
+            idioma = st.selectbox("Idioma do Vídeo:", ["Português", "Inglês", "Espanhol"])
+            
+            if st.button("GERAR LEGENDAS AGORA", type="primary", use_container_width=True):
+                with st.status("IA analisando áudio..."):
+                    # Aqui entraria a integração com Whisper ou AssemblyAI
+                    import time
+                    time.sleep(3)
+                    st.success("Legendas Geradas!")
+                    incrementar_uso()
+                    st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
 
     with col2:
-        if st.button("Create Account"):
-            try:
-                res = supabase.auth.sign_up({
-                    "email": email,
-                    "password": password
-                })
-                if res.user:
-                    supabase.table("users").insert({
-                        "email": email,
-                        "credits": 30
-                    }).execute()
-                    st.success("Account created!")
-            except:
-                st.error("Signup error")
-
-# ==============================
-# DASHBOARD
-# ==============================
-elif menu == "Dashboard":
-    if not st.session_state.user:
-        st.warning("Please login first")
-    else:
-        st.title("🚀 Dashboard")
-
-        email = st.session_state.user.email
-
-        data = supabase.table("users").select("credits").eq("email", email).execute()
-
-        if data.data:
-            credits = data.data[0]["credits"]
+        st.markdown('<div class="panel">', unsafe_allow_html=True)
+        st.subheader("Preview Profissional")
+        if video_file:
+            st.video(video_file)
+            st.info(f"Legenda selecionada: {estilo}")
         else:
-            credits = 0
+            st.image("https://via.placeholder.com/800x450/000/666?text=Aguardando+Vídeo", use_column_width=True)
+        st.markdown('</div>', unsafe_allow_html=True)
 
-        st.metric("Credits", credits)
-
-# ==============================
-# UPLOAD
-# ==============================
-elif menu == "Upload":
-    if not st.session_state.user:
-        st.warning("Please login first")
-    else:
-        st.title("📤 Upload Video")
-
-        email = st.session_state.user.email
-
-        uploaded_file = st.file_uploader("Upload your video", type=["mp4", "mov"])
-
-        if uploaded_file:
-            st.video(uploaded_file)
-
-            st.write("Cost:")
-            st.write("✂️ Cut = 3 credits")
-            st.write("📝 Captions = 2 credits")
-
-            if st.button("Process Video"):
-                data = supabase.table("users").select("credits").eq("email", email).execute()
-                credits = data.data[0]["credits"]
-
-                if credits >= 5:
-                    # descontar créditos
-                    supabase.table("users").update({
-                        "credits": credits - 5
-                    }).eq("email", email).execute()
-
-                    # salvar arquivo temporário
-                    with tempfile.NamedTemporaryFile(delete=False) as tmp:
-                        tmp.write(uploaded_file.read())
-                        file_path = tmp.name
-
-                    # upload storage
-                    supabase.storage.from_("videos").upload(uploaded_file.name, open(file_path, "rb"))
-
-                    # salvar no banco
-                    supabase.table("videos").insert({
-                        "user_email": email,
-                        "file_name": uploaded_file.name
-                    }).execute()
-
-                    st.success("Video processed successfully!")
-                else:
-                    st.error("Not enough credits")
-
-        st.subheader("🧠 AI Captions (Coming Soon)")
-
-        if st.button("Generate Captions"):
-            st.info("AI captions will be added soon")
-
-# ==============================
-# PLANS
-# ==============================
-elif menu == "Plans":
-    st.title("💳 Plans")
-
-    col1, col2, col3 = st.columns(3)
-
-    with col1:
-        st.subheader("Free")
-        st.write("30 credits")
-        st.write("Max 2 minutes")
-
-    with col2:
-        st.subheader("Basic - $9.99")
-        st.write("60 credits")
-
-    with col3:
-        st.subheader("Pro - $19.99")
-        st.write("150 credits")
-
-st.sidebar.write("---")
-st.sidebar.write("© 2026 VideoAI Cut")
+# Footer
+st.markdown("<br><center style='color:#444;'>VIDIOM AI v1.0 - Legendas Inteligentes</center>", unsafe_allow_html=True)
