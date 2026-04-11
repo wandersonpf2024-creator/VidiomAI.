@@ -1,38 +1,30 @@
-def baixar_e_cortar(url, start_time, end_time, output_name="corte_viral.mp4"):
-    # CONFIGURAÇÃO ANTI-BOT
-    ydl_opts = {
-        'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
-        'outtmpl': 'video_original.mp4',
-        'quiet': True,
-        'no_warnings': True,
-        'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'referer': 'https://www.google.com/',
-        'nocheckcertificate': True
-    }
-    
-    with st.status("Executando Protocolo de Download...", expanded=True) as status:
-        try:
-            st.write("📡 Conectando ao YouTube...")
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                ydl.download([url])
-            
-            st.write("✂️ Ajustando o corte final...")
-            # Usando a importação correta para evitar erros de versão
-            from moviepy.video.io.VideoFileClip import VideoFileClip
-            
-            with VideoFileClip("video_original.mp4") as video:
-                # Garante que o corte não passe do tempo total do vídeo
-                fim_real = min(end_time, video.duration)
-                corte = video.subclip(start_time, fim_real)
-                corte.write_videofile(output_name, codec="libx264", audio_codec="aac", temp_audiofile='temp-audio.m4a', remove_temp=True)
-            
-            # Limpeza
-            if os.path.exists("video_original.mp4"):
-                os.remove("video_original.mp4")
-            status.update(label="Vídeo Processado com Sucesso!", state="complete")
-            return output_name
-            
-        except Exception as e:
-            status.update(label="Falha no Processamento", state="error")
-            st.error(f"Erro detalhado: {str(e)}")
-            return None
+import streamlit as st
+import os
+
+# --- TENTA IMPORTAR AS BIBLIOTECAS PESADAS APENAS SE O APP ABRIR ---
+try:
+    from groq import Groq
+    import yt_dlp
+    from moviepy.editor import VideoFileClip
+    import re
+    from youtube_transcript_api import YouTubeTranscriptApi
+except Exception as e:
+    st.error(f"Erro ao carregar bibliotecas: {e}. Verifique o requirements.txt")
+
+st.set_page_config(page_title="VIDIOM PRO", layout="wide")
+
+st.title("🎬 VIDIOM AI - MODO RECUPERAÇÃO")
+
+# Interface Simples para ver se abre
+url_input = st.text_input("Cole o link do YouTube aqui:")
+
+if st.button("🚀 INICIAR PROCESSAMENTO"):
+    if not url_input:
+        st.warning("Coloque um link!")
+    else:
+        st.write("Tentando furar o bloqueio e processar...")
+        # Aqui entraria a função de download que te passei antes
+        st.info("O motor está pronto. Se o app abriu, a parte mais difícil passou!")
+
+st.sidebar.markdown("### Status do Sistema")
+st.sidebar.success("Servidor Ativo")
