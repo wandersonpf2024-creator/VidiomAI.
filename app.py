@@ -1,64 +1,61 @@
 import streamlit as st
-import google.generativeai as genai
+from groq import Groq
 import re
 from youtube_transcript_api import YouTubeTranscriptApi
 
-# --- SETUP ---
-st.set_page_config(page_title="VIDIOM AI", layout="wide")
+# --- CONFIGURAÇÃO ---
+st.set_page_config(page_title="VIDIOM AI | GROQ SPEED", layout="wide")
 
-# Inicializa a IA de forma simples
-def iniciar_ia():
-    if "GEMINI_API_KEY" not in st.secrets:
-        st.error("ERRO: Configure a GEMINI_API_KEY nas Secrets do Streamlit!")
+# Estética Dark
+st.markdown("<style>.stApp { background: #050505; color: #fff; }</style>", unsafe_allow_html=True)
+
+# --- INICIALIZAÇÃO DA GROQ ---
+def setup_groq():
+    if "GROQ_API_KEY" not in st.secrets:
+        st.error("Configure GROQ_API_KEY nas Secrets do Streamlit!")
         return None
-    genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-    return genai.GenerativeModel('gemini-1.5-flash')
+    return Groq(api_key=st.secrets["GROQ_API_KEY"])
 
-ia = iniciar_ia()
+client = setup_groq()
 
-# Função para pegar o ID do vídeo
-def pegar_id(url):
-    regex = r"(?:v=|\/)([0-9A-Za-z_-]{11})"
-    busca = re.search(regex, url)
-    return busca.group(1) if busca else None
+def extrair_id(url):
+    pattern = r'(?:v=|\/)([a-zA-Z0-9_-]{11})'
+    match = re.search(pattern, url)
+    return match.group(1) if match else None
 
-# --- INTERFACE ---
-st.title("✂️ VIDIOM AI - GERADOR DE CORTES")
+# --- UI ---
+st.title("⚡ VIDIOM AI - Edição Ultra-Rápida")
+st.markdown("### Powered by Groq (Llama 3)")
 
-link = st.text_input("Cole o link do YouTube aqui:")
+url_input = st.text_input("Cole o link do YouTube aqui:")
 
-if st.button("CRIAR ROTEIRO DE CORTE"):
-    if link and ia:
-        with st.spinner("Analisando vídeo..."):
-            video_id = pegar_id(link)
-            texto_video = ""
+if st.button("🚀 GERAR ROTEIRO DE CORTE"):
+    if url_input and client:
+        with st.spinner("Processando em alta velocidade..."):
+            v_id = extrair_id(url_input)
+            transcricao = ""
             
-            # Tenta pegar a legenda
-            if video_id:
+            if v_id:
                 try:
-                    legenda = YouTubeTranscriptApi.get_transcript(video_id, languages=['pt', 'en'])
-                    texto_video = " ".join([t['text'] for t in legenda])
+                    data = YouTubeTranscriptApi.get_transcript(v_id, languages=['pt', 'en'])
+                    transcricao = " ".join([t['text'] for t in data])
                 except:
-                    texto_video = "Legenda não encontrada. Analise pelo contexto do título."
+                    transcricao = "Sem legendas. Analise o link diretamente."
 
-            # O Prompt que faz o trabalho duro
-            prompt = f"""
-            Aja como um editor de vídeos virais. 
-            Analise este conteúdo: {texto_video[:3500]}
-            
-            1. Escolha o melhor momento para um corte de 60 segundos.
-            2. Escreva um TÍTULO chamativo.
-            3. Escreva o ROTEIRO das legendas dinâmicas.
-            """
+            # PROMPT PARA LLAMA 3
+            prompt = f"Aja como um editor viral. Crie um roteiro de corte (gancho, tempo e legendas) para este vídeo: {url_input}. Contexto: {transcricao[:4000]}"
             
             try:
-                resposta = ia.generate_content(prompt)
-                st.session_state.resultado = resposta.text
-                st.success("Roteiro gerado!")
+                # Chamada da API Groq (Llama 3 é excelente para isso)
+                chat_completion = client.chat.completions.create(
+                    messages=[{"role": "user", "content": prompt}],
+                    model="llama3-8b-8192",
+                )
+                st.session_state.resultado = chat_completion.choices[0].message.content
             except Exception as e:
-                st.error(f"Erro na IA: {e}")
+                st.error(f"Erro na Groq: {e}")
 
-# Exibe o resultado
 if "resultado" in st.session_state:
-    st.markdown("### 🎬 Seu Roteiro de Corte:")
-    st.text_area("", st.session_state.resultado, height=400)
+    st.markdown("---")
+    st.subheader("🎬 Plano de Viralização:")
+    st.info(st.session_state.resultado)
