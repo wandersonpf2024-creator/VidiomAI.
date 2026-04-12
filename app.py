@@ -4,110 +4,125 @@ from PIL import Image, ImageDraw, ImageFont
 import requests
 from io import BytesIO
 import json
+import textwrap
 
-# 1. Configuração da Página e Estilo
+# 1. Configuração da Página
 st.set_page_config(page_title="News2Post AI", page_icon="🚀", layout="centered")
 
+# Estilização CSS para deixar o app com visual moderno
 st.markdown("""
     <style>
     .main { background-color: #0e1117; }
-    .stButton>button { width: 100%; border-radius: 5px; height: 3em; background-color: #ff4b4b; color: white; }
+    .stButton>button { width: 100%; border-radius: 5px; height: 3em; background-color: #ff4b4b; color: white; font-weight: bold; }
     </style>
     """, unsafe_allow_html=True)
 
 # 2. Inicialização do Cliente Groq
-# Tenta pegar a chave dos Secrets do Streamlit
 try:
-    client = Groq(api_key=st.secrets["GROQ_API_KEY"])
+    # Busca a chave nos Secrets do Streamlit ou localmente
+    api_key = st.secrets["GROQ_API_KEY"]
+    client = Groq(api_key=api_key)
 except Exception:
-    st.error("Erro: API Key da Groq não encontrada nos Secrets!")
+    st.error("ERRO: API Key da Groq não encontrada. Configure nos 'Secrets' do Streamlit.")
     st.stop()
 
-# 3. Função para processar o texto com Llama 3 (Groq)
-def processar_conteudo_ia(tema_ou_link):
+# 3. Função para processar o conteúdo com a IA da Groq
+def processar_conteudo_ia(entrada_usuario):
     prompt = f"""
-    Você é um gerente de redes sociais de alto nível. 
-    Analise o seguinte tema ou notícia: "{tema_ou_link}"
-    Gere um post para Facebook/Instagram seguindo EXATAMENTE este formato JSON:
+    Você é um gerente de redes sociais especializado em viralização.
+    Analise o seguinte conteúdo ou link: "{entrada_usuario}"
+    
+    Gere um post para Facebook seguindo EXATAMENTE este formato JSON:
     {{
-        "headline": "Uma frase curta, impactante e viral para ir escrita na imagem (máx 45 caracteres)",
-        "legenda": "Um texto engajador com emojis e que termine com uma pergunta",
-        "hashtags": "#tag1 #tag2 #tag3"
+        "headline": "Uma frase curta e agressiva para a imagem (máx 40 caracteres)",
+        "legenda": "Um texto curto, informativo e com emojis para a descrição",
+        "hashtags": "#noticias #carros #tech"
     }}
-    Responda APENAS o JSON, sem textos adicionais.
+    Responda APENAS o objeto JSON.
     """
     
     chat_completion = client.chat.completions.create(
         messages=[{"role": "user", "content": prompt}],
-        model="llama3-70b-8192",
+        model="llama-3.3-70b-versatile",
         response_format={"type": "json_object"}
     )
+    
     return json.loads(chat_completion.choices[0].message.content)
 
-# 4. Função para gerar a imagem (O Motor de Design)
+# 4. Função para desenhar a imagem do post
 def gerar_imagem_post(headline):
-    # Criar uma imagem quadrada 1080x1080 (Padrão Insta/FB)
-    # Usando um degradê simples ou cor sólida de impacto (Vermelho Escuro)
+    # Cria uma imagem quadrada de 1080x1080
     width, height = 1080, 1080
-    image = Image.new('RGB', (width, height), color='#8B0000')
+    # Fundo em um tom de vermelho escuro premium
+    image = Image.new('RGB', (width, height), color='#A50000')
     draw = ImageDraw.Draw(image)
     
-    # Tentativa de carregar fonte. Se falhar, usa a padrão.
+    # Tenta usar a fonte padrão (em servidores é a forma mais segura de não dar erro)
     try:
-        # No Streamlit Cloud, fontes .ttf precisam estar na pasta ou usar caminhos do sistema
-        font = ImageFont.load_default() 
-        # Para algo profissional, você subiria um arquivo 'font.ttf' pro GitHub e usaria:
-        # font = ImageFont.truetype("font.ttf", 80)
+        # Se você subir uma fonte .ttf para o seu GitHub, mude a linha abaixo para:
+        # font = ImageFont.truetype("sua-fonte.ttf", 80)
+        font = ImageFont.load_default()
     except:
         font = ImageFont.load_default()
 
-    # Quebrar o texto para caber na imagem
-    import textwrap
-    linhas = textwrap.wrap(headline, width=20)
+    # Quebra o texto automaticamente para não sair da imagem
+    linhas = textwrap.wrap(headline, width=15)
     
     y_text = 400
     for linha in linhas:
-        # Desenha o texto centralizado (ajuste manual básico)
-        draw.text((150, y_text), linha, fill="white", font=font)
+        # Desenha o texto (branco e centralizado horizontalmente de forma simples)
+        draw.text((150, y_text), linha.upper(), fill="white", font=font)
         y_text += 100
 
     return image
 
-# 5. Interface do Usuário (UI)
-st.title("🚀 News2Post AI")
-st.write("Insira um tema ou link de notícia para gerar seu post instantâneo.")
+# 5. Interface do Usuário (Frontend)
+st.title("🚀 Gerador de Post Viral")
+st.write("Insira um tema ou link e a IA criará a imagem e a legenda para você.")
 
-entrada = st.text_input("Notícia ou Assunto:", placeholder="Ex: Nova atualização do Facebook 2026")
+# Campo de entrada
+entrada = st.text_input("Cole o link da notícia ou o tema aqui:", placeholder="Ex: Novo carro elétrico da Toyota faz 2000km")
 
-if st.button("GERAR POST AGORA"):
+if st.button("GERAR POST COMPLETO"):
     if entrada:
-        with st.spinner("🤖 IA processando e desenhando..."):
+        with st.spinner("🤖 A IA está lendo a notícia e desenhando o post..."):
             try:
-                # Processamento
-                resultado = processar_conteudo_ia(entrada)
-                img_final = gerar_imagem_post(resultado['headline'])
+                # Chama a Groq
+                dados_post = processar_conteudo_ia(entrada)
                 
-                # Exibição
+                # Gera a Imagem
+                imagem_pronta = gerar_imagem_post(dados_post['headline'])
+                
+                # Exibe os resultados na tela
+                st.divider()
                 col1, col2 = st.columns([1, 1])
                 
                 with col1:
-                    st.image(img_final, caption="Imagem Gerada", use_column_width=True)
+                    st.image(imagem_pronta, caption="Preview da Imagem", use_container_width=True)
                 
                 with col2:
-                    st.subheader("Legenda:")
-                    st.write(resultado['legenda'])
-                    st.info(resultado['hashtags'])
+                    st.subheader("📝 Legenda Gerada:")
+                    st.write(dados_post['legenda'])
+                    st.write(f"**{dados_post['hashtags']}**")
                 
-                # Botão de Download
-                buf = BytesIO()
-                img_final.save(buf, format="PNG")
-                byte_im = buf.getvalue()
-                st.download_button(label="📥 Baixar Imagem para Postar", data=byte_im, file_name="post_ia.png", mime="image/png")
+                # Preparar download
+                img_buffer = BytesIO()
+                imagem_pronta.save(img_buffer, format="PNG")
+                byte_im = img_buffer.getvalue()
                 
+                st.download_button(
+                    label="📥 Baixar Imagem para o Facebook",
+                    data=byte_im,
+                    file_name="post_viral_ia.png",
+                    mime="image/png"
+                )
+                
+                st.success("✅ Post pronto para publicação!")
+
             except Exception as e:
-                st.error(f"Ocorreu um erro: {e}")
+                st.error(f"Ocorreu um erro no processamento: {e}")
     else:
-        st.warning("Por favor, digite algo antes de gerar.")
+        st.warning("Por favor, digite um tema ou cole um link.")
 
 st.markdown("---")
-st.caption("Desenvolvido para escala global - Powered by Groq & Streamlit")
+st.caption("Ferramenta Pro para Donos de Páginas - Versão 1.0")
