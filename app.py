@@ -1,77 +1,110 @@
 import streamlit as st
+from moviepy.editor import VideoFileClip
+import tempfile
 import os
+from datetime import date
+from groq import Groq
 
-# --- CONFIGURAÇÃO ---
-st.set_page_config(page_title="VIDIOM AI | Subtitles", layout="wide")
+# ==============================
+# CONFIG
+# ==============================
+st.set_page_config(page_title="AI Caption Generator", layout="centered")
 
-# Inicializa o contador se não existir
-if 'contador' not in st.session_state:
-    st.session_state.contador = 0
+client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 
-# CSS para manter o estilo que você gosta
-st.markdown("""
-    <style>
-    .stApp { background-color: #080808; color: #ffffff; }
-    header { display: none !important; }
-    .top-bar {
-        background-color: #000000; border-bottom: 1px solid #1f1f1f;
-        padding: 10px 40px; display: flex; justify-content: space-between;
-        align-items: center; height: 65px; position: fixed; width: 100%; top: 0; z-index: 999;
-    }
-    .panel { background-color: #0f0f10; border: 1px solid #1f1f1f; border-radius: 12px; padding: 20px; }
-    </style>
-""", unsafe_allow_html=True)
+st.title("🎬 AI Caption Generator (Groq)")
 
-# --- CABEÇALHO ---
-st.markdown(f"""
-    <div class="top-bar">
-        <div style="font-weight: 900; font-size: 22px;">🎞️ VIDIOM.AI</div>
-        <div style="display: flex; gap: 20px; align-items: center;">
-            <div style="color: #888;">Uso: {st.session_state.contador}/3 hoje</div>
-            <div style="background-color: white; color: black; padding: 6px 15px; border-radius: 5px; font-weight: bold; font-size: 12px;">UPGRADE</div>
-        </div>
-    </div>
-""", unsafe_allow_html=True)
+# ==============================
+# CONTROLE DE USO
+# ==============================
+today = str(date.today())
 
-st.write("##")
-st.write("##")
+if "usage" not in st.session_state:
+    st.session_state.usage = {}
 
-# --- LÓGICA PRINCIPAL ---
-col1, col2 = st.columns([1, 1.5])
+if today not in st.session_state.usage:
+    st.session_state.usage = {today: 0}
 
-with col1:
-    st.markdown('<div class="panel">', unsafe_allow_html=True)
-    st.subheader("Subir Vídeo")
-    video_file = st.file_uploader("Escolha o vídeo", type=["mp4", "mov"], label_visibility="collapsed")
-    
-    if video_file:
-        estilo = st.selectbox("Estilo da Legenda", ["Amarelo Viral", "Branco Clean", "Impacto"])
-        
-        # SÓ MOSTRA O BOTÃO SE ESTIVER DENTRO DO LIMITE
-        if st.session_state.contador < 3:
-            if st.button("GERAR LEGENDA", type="primary", use_container_width=True):
-                with st.status("Analizando áudio com Groq..."):
-                    # SIMULAÇÃO DA IA (Aqui entra o código do Whisper/Groq)
-                    import time
-                    time.sleep(4) 
-                    
-                    # Se chegou aqui, deu certo:
-                    st.session_state.contador += 1
-                    st.success("Legenda gerada com sucesso!")
-                    st.rerun() # Atualiza a tela para mostrar o vídeo legendado
+limit = 3
+used = st.session_state.usage[today]
+
+st.write(f"📊 Free usage: {used}/{limit} today")
+
+# ==============================
+# ESTILO
+# ==============================
+style = st.selectbox(
+    "Choose caption style",
+    ["Simple", "Bold", "Subtitle", "TikTok Style"]
+)
+
+# ==============================
+# UPLOAD
+# ==============================
+video = st.file_uploader("Upload your video", type=["mp4", "mov"])
+
+if video:
+    st.video(video)
+
+    if st.button("🚀 Generate Captions"):
+
+        if used >= limit:
+            st.error("🚫 Daily limit reached (3 videos)")
         else:
-            st.error("🚀 Limite diário atingido! Faça o Upgrade.")
-    st.markdown('</div>', unsafe_allow_html=True)
+            st.info("Processing...")
 
-with col2:
-    st.markdown('<div class="panel">', unsafe_allow_html=True)
-    st.subheader("Resultado")
-    if video_file:
-        if st.session_state.contador > 0:
-            st.video(video_file)
-            st.caption(f"Exibindo vídeo com estilo: {estilo}")
-        else:
-            st.info("Clique em 'Gerar Legenda' para processar.")
-    else:
-        st.image("https://via.placeholder.com/600x350/000/666?text=Aguardando+Midia")
-    st.markdown('</div>', unsafe_allow_html=True)
+            # salvar vídeo
+            with tempfile.NamedTemporaryFile(delete=False) as tmp:
+                tmp.write(video.read())
+                video_path = tmp.name
+
+            try:
+                clip = VideoFileClip(video_path)
+
+                # extrair áudio
+                audio_path = video_path + ".mp3"
+                clip.audio.write_audiofile(audio_path)
+
+                # ==============================
+                # TRANSCRIÇÃO COM GROQ
+                # ==============================
+                with open(audio_path, "rb") as f:
+                    transcription = client.audio.transcriptions.create(
+                        file=f,
+                        model="whisper-large-v3"
+                    )
+
+                text = transcription.text
+
+                # ==============================
+                # ESTILOS
+                # ==============================
+                if style == "Bold":
+                    text = text.upper()
+
+                elif style == "Subtitle":
+                    text = "\n".join([f"- {line.strip()}" for line in text.split(".") if line.strip()])
+
+                elif style == "TikTok Style":
+                    text = "✨ " + text.replace(".", " 🔥 ")
+
+                st.success("✅ Captions generated!")
+
+                st.text_area("Your captions", text, height=200)
+
+                # download
+                st.download_button(
+                    "⬇️ Download captions",
+                    text,
+                    file_name="captions.txt"
+                )
+
+                # atualizar uso
+                st.session_state.usage[today] += 1
+
+            except Exception as e:
+                st.error("Error processing video")
+
+            finally:
+                if os.path.exists(video_path):
+                    os.remove(video_path)
