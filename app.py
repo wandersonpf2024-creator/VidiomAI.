@@ -1,70 +1,59 @@
 import streamlit as st
 from supabase import create_client
-import openai
+from groq import Groq
 import base64
 
-# --- 1. CONEXÃO COM SEUS DADOS (Substitua pelos seus) ---
-# Pegue esses dados no menu 'Settings' > 'API' do seu Supabase
-url = st.secrets["SUPABASE_URL"]
-key = st.secrets["SUPABASE_KEY"]
-supabase = create_client(url, key)
-openai.api_key = st.secrets["OPENAI_API_KEY"]
+# --- CONEXÃO COM SEUS DADOS ---
+# Agora buscando GROQ_API_KEY
+client = Groq(api_key=st.secrets["GROQ_API_KEY"])
+supabase = create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
 
-# --- 2. DESIGN LANDING PAGE (Estilo Profissional Dark) ---
-st.set_page_config(page_title="NutriScan IA", layout="wide")
+# --- DESIGN DARK PRO ---
+st.set_page_config(page_title="VidiomAI | Nutri", layout="wide")
+st.markdown("<style>.stApp {background-color: #050505; color: white;}</style>", unsafe_allow_html=True)
 
-st.markdown("""
-    <style>
-    .stApp {
-        background: radial-gradient(circle at top, #121212 0%, #050505 100%);
-        color: white;
-    }
-    .hero-title {
-        font-size: 50px; font-weight: 800; text-align: center;
-        margin-top: 40px; background: linear-gradient(to right, #fff, #6366f1);
-        -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-    }
-    .input-container {
-        background: rgba(255,255,255,0.03); border: 1px solid #222;
-        padding: 30px; border-radius: 20px; max-width: 800px; margin: 30px auto;
-    }
-    </style>
-""", unsafe_allow_html=True)
-
-# --- 3. LÓGICA DE IA ---
-def analisar_comida(foto_bytes):
+# --- FUNÇÃO DE VISÃO COM GROQ ---
+def analisar_com_groq(foto_bytes):
     base64_image = base64.b64encode(foto_bytes).decode('utf-8')
-    response = openai.chat.completions.create(
-        model="gpt-4o",
-        messages=[{"role": "user", "content": [
-            {"type": "text", "text": "Retorne APENAS o nome do prato, calorias e macros. Exemplo: Picanha | 500kcal | P:50g, C:0g, G:30g"},
-            {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}
-        ]}]
+    
+    # Usando o modelo de visão da Groq (llama-3.2-11b-vision-preview)
+    completion = client.chat.completions.create(
+        model="llama-3.2-11b-vision-preview",
+        messages=[
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "Analise a imagem e retorne apenas: Nome do prato | Calorias | Macros (P, C, G)"},
+                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}
+                ]
+            }
+        ],
+        temperature=1,
+        max_tokens=1024,
+        top_p=1,
+        stream=False,
+        stop=None,
     )
-    return response.choices[0].message.content
+    return completion.choices[0].message.content
 
-# --- 4. INTERFACE ---
-st.markdown('<h1 class="hero-title">NutriScan IA</h1>', unsafe_allow_html=True)
-st.markdown('<p style="text-align:center; color:#888;">Tire uma foto e descubra o que você está comendo instantaneamente.</p>', unsafe_allow_html=True)
+# --- INTERFACE ---
+st.title("📸 Scanner Nutricional (Groq Edition)")
 
-with st.container():
-    st.markdown('<div class="input-container">', unsafe_allow_html=True)
-    
-    foto = st.camera_input("📸 Aponte para o prato")
-    
-    if foto:
-        if st.button("ANALISAR E SALVAR NO HISTÓRICO 🚀", use_container_width=True, type="primary"):
-            with st.spinner("IA analisando seu prato..."):
-                # Analisa com GPT-4o
-                resultado = analisar_comida(foto.getvalue())
+foto = st.camera_input("Tire foto do seu prato")
+
+if foto:
+    if st.button("ANALISAR COM GROQ 🚀", type="primary", use_container_width=True):
+        with st.spinner("A Groq está processando a imagem em milissegundos..."):
+            try:
+                resultado = analisar_com_groq(foto.getvalue())
                 
-                # Separa os dados para o Supabase
+                # Tratamento simples do texto para o Supabase
                 partes = resultado.split('|')
-                nome = partes[0].strip()
-                cals = partes[1].strip()
-                macs = partes[2].strip() if len(partes) > 2 else "N/A"
-                
-                # SALVA NA TABELA QUE VOCÊ CRIOU
+                nome = partes[0].strip() if len(partes) > 0 else "Prato Identificado"
+                cals = partes[1].strip() if len(partes) > 1 else "---"
+                macs = partes[2].strip() if len(partes) > 2 else "---"
+
+                # SALVA NA TABELA DO SUPABASE
                 dados = {
                     "nome_prato": nome,
                     "calorias": cals,
@@ -72,13 +61,14 @@ with st.container():
                 }
                 supabase.table("refeicoes").insert(dados).execute()
                 
-                st.success(f"Salvo! {nome} identificado.")
-                st.info(f"🔥 {cals} | 🥩 {macs}")
-    
-    st.markdown('</div>', unsafe_allow_html=True)
+                st.success("Salvo no histórico!")
+                st.subheader(f"🍴 {nome}")
+                st.write(f"🔥 {cals} | 🥩 {macs}")
+            
+            except Exception as e:
+                st.error(f"Erro na Groq: {e}")
 
-# --- 5. VISUALIZAR HISTÓRICO ---
-if st.checkbox("Ver meu histórico de refeições"):
+# Histórico
+if st.checkbox("Ver Histórico"):
     res = supabase.table("refeicoes").select("*").order("created_at", desc=True).execute()
-    if res.data:
-        st.table(res.data)
+    st.table(res.data)
