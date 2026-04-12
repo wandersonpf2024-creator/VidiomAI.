@@ -1,5 +1,5 @@
 import streamlit as st
-from moviepy.editor import VideoFileClip
+from moviepy.editor import VideoFileClip, TextClip, CompositeVideoClip
 import tempfile
 import os
 from datetime import date
@@ -8,11 +8,11 @@ from groq import Groq
 # ==============================
 # CONFIG
 # ==============================
-st.set_page_config(page_title="AI Caption Generator", layout="centered")
+st.set_page_config(page_title="TikTok Caption AI", layout="centered")
 
 client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 
-st.title("🎬 AI Caption Generator (Groq)")
+st.title("🎬 TikTok Style Captions")
 
 # ==============================
 # CONTROLE DE USO
@@ -28,32 +28,23 @@ if today not in st.session_state.usage:
 limit = 3
 used = st.session_state.usage[today]
 
-st.write(f"📊 Free usage: {used}/{limit} today")
-
-# ==============================
-# ESTILO
-# ==============================
-style = st.selectbox(
-    "Choose caption style",
-    ["Simple", "Bold", "Subtitle", "TikTok Style"]
-)
+st.write(f"Free usage: {used}/{limit}")
 
 # ==============================
 # UPLOAD
 # ==============================
-video = st.file_uploader("Upload your video", type=["mp4", "mov"])
+video = st.file_uploader("Upload video", type=["mp4", "mov"])
 
 if video:
     st.video(video)
 
-    if st.button("🚀 Generate Captions"):
+    if st.button("🚀 Generate TikTok Captions"):
 
         if used >= limit:
-            st.error("🚫 Daily limit reached (3 videos)")
+            st.error("Limit reached")
         else:
             st.info("Processing...")
 
-            # salvar vídeo
             with tempfile.NamedTemporaryFile(delete=False) as tmp:
                 tmp.write(video.read())
                 video_path = tmp.name
@@ -66,44 +57,71 @@ if video:
                 clip.audio.write_audiofile(audio_path)
 
                 # ==============================
-                # TRANSCRIÇÃO COM GROQ
+                # TRANSCRIÇÃO COM TIMESTAMPS
                 # ==============================
                 with open(audio_path, "rb") as f:
                     transcription = client.audio.transcriptions.create(
                         file=f,
-                        model="whisper-large-v3"
+                        model="whisper-large-v3",
+                        response_format="verbose_json"
                     )
 
-                text = transcription.text
+                words = []
+                for seg in transcription.segments:
+                    for w in seg["words"]:
+                        words.append(w)
 
-                # ==============================
-                # ESTILOS
-                # ==============================
-                if style == "Bold":
-                    text = text.upper()
+                full_text = [w["word"] for w in words]
 
-                elif style == "Subtitle":
-                    text = "\n".join([f"- {line.strip()}" for line in text.split(".") if line.strip()])
+                text_clips = []
 
-                elif style == "TikTok Style":
-                    text = "✨ " + text.replace(".", " 🔥 ")
+                for i, word in enumerate(words):
+                    start = word["start"]
+                    end = word["end"]
 
-                st.success("✅ Captions generated!")
+                    # montar frase com palavra destacada
+                    styled_text = ""
+                    for j, w in enumerate(full_text):
+                        if j == i:
+                            styled_text += f"<span foreground='yellow'>{w}</span> "
+                        else:
+                            styled_text += f"<span foreground='white'>{w}</span> "
 
-                st.text_area("Your captions", text, height=200)
+                    txt_clip = (
+                        TextClip(
+                            styled_text,
+                            fontsize=60,
+                            method='caption',
+                            size=(clip.w - 100, None),
+                            align='center'
+                        )
+                        .set_position(("center", "bottom"))
+                        .set_start(start)
+                        .set_duration(end - start)
+                    )
 
-                # download
-                st.download_button(
-                    "⬇️ Download captions",
-                    text,
-                    file_name="captions.txt"
-                )
+                    text_clips.append(txt_clip)
 
-                # atualizar uso
+                final = CompositeVideoClip([clip] + text_clips)
+
+                output = video_path + "_tiktok.mp4"
+                final.write_videofile(output, fps=24)
+
+                st.success("✅ Done!")
+
+                st.video(output)
+
+                with open(output, "rb") as f:
+                    st.download_button(
+                        "⬇️ Download Video",
+                        f,
+                        file_name="tiktok_caption.mp4"
+                    )
+
                 st.session_state.usage[today] += 1
 
             except Exception as e:
-                st.error("Error processing video")
+                st.error("Error processing")
 
             finally:
                 if os.path.exists(video_path):
