@@ -1,128 +1,135 @@
 import streamlit as st
-from moviepy.editor import VideoFileClip, TextClip, CompositeVideoClip
-import tempfile
-import os
-from datetime import date
-from groq import Groq
 
-# ==============================
-# CONFIG
-# ==============================
-st.set_page_config(page_title="TikTok Caption AI", layout="centered")
+# --- 1. CONFIGURAÇÃO E DESIGN CUSTOMIZADO ---
+st.set_page_config(page_title="VIDIOM.AI | Legendas Mágicas", layout="wide")
 
-client = Groq(api_key=st.secrets["GROQ_API_KEY"])
+st.markdown("""
+    <style>
+    /* Fundo em degradê escuro Profissional */
+    .stApp {
+        background: radial-gradient(circle at top, #1a1a2e 0%, #080808 100%);
+        color: white;
+        font-family: 'Inter', sans-serif;
+    }
+    
+    /* REMOVE CABEÇALHO PADRÃO */
+    header, [data-testid="stHeader"] { display: none !important; }
+    .stMainBlockContainer { padding-top: 20px !important; }
 
-st.title("🎬 TikTok Style Captions")
+    /* NAVBAR SUPERIOR */
+    .nav-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 20px 10%;
+    }
+    .nav-links { display: flex; gap: 30px; font-size: 14px; color: #bbb; }
+    .btn-entrar {
+        background: #ffffff; color: black; padding: 8px 25px;
+        border-radius: 50px; font-weight: bold; font-size: 14px;
+    }
 
-# ==============================
-# CONTROLE DE USO
-# ==============================
-today = str(date.today())
+    /* TEXTO CENTRAL (HERO SECTION) */
+    .hero-container {
+        text-align: center;
+        margin-top: 80px;
+        padding: 0 15%;
+    }
+    .hero-title {
+        font-size: 72px;
+        font-weight: 800;
+        line-height: 1.1;
+        margin-bottom: 20px;
+        background: linear-gradient(to right, #fff 30%, #6366f1 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+    .hero-subtitle {
+        font-size: 20px;
+        color: #999;
+        max-width: 700px;
+        margin: 0 auto 50px auto;
+    }
 
-if "usage" not in st.session_state:
-    st.session_state.usage = {}
+    /* CAIXA DE INPUT (O CORAÇÃO DA PÁGINA) */
+    .input-box {
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 20px;
+        padding: 40px;
+        max-width: 800px;
+        margin: 0 auto;
+        backdrop-filter: blur(10px);
+    }
+    
+    /* Estilização do botão de upload do Streamlit para combinar */
+    [data-testid="stFileUploadDropzone"] {
+        background: rgba(255, 255, 255, 0.05) !important;
+        border: 2px dashed rgba(255, 255, 255, 0.2) !important;
+        border-radius: 15px !important;
+    }
+    
+    .footer-tech {
+        margin-top: 40px;
+        font-size: 12px;
+        color: #555;
+        text-align: center;
+    }
+    </style>
+""", unsafe_allow_html=True)
 
-if today not in st.session_state.usage:
-    st.session_state.usage = {today: 0}
+# --- 2. BARRA DE NAVEGAÇÃO ---
+st.markdown(f"""
+    <div class="nav-bar">
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <img src="https://via.placeholder.com/150x40?text=VIDIOM.AI" style="height: 25px;"> 
+        </div>
+        <div class="nav-links">
+            <div>Valores</div>
+            <div>Blog</div>
+            <div>Ajuda</div>
+        </div>
+        <div class="btn-entrar">Entrar</div>
+    </div>
+""", unsafe_allow_html=True)
 
-limit = 3
-used = st.session_state.usage[today]
+# --- 3. CONTEÚDO PRINCIPAL (HERO) ---
+st.markdown("""
+    <div class="hero-container">
+        <h1 class="hero-title">Gerador de Legendas <br> Inteligente</h1>
+        <p class="hero-subtitle">
+            Poupe horas de edição. Crie legendas dinâmicas e virais para seus vídeos 
+            em poucos cliques com nossa tecnologia de IA avançada.
+        </p>
+    </div>
+""", unsafe_allow_html=True)
 
-st.write(f"Free usage: {used}/{limit}")
+# --- 4. CAIXA DE AÇÃO (INPUTS) ---
+with st.container():
+    st.markdown('<div class="input-box">', unsafe_allow_html=True)
+    
+    # Input de Link
+    col_link, col_btn = st.columns([3, 1])
+    with col_link:
+        url = st.text_input("YouTube / Instagram Link", placeholder="Cole o link aqui...", label_visibility="collapsed")
+    with col_btn:
+        st.button("Criar agora", type="primary", use_container_width=True)
+    
+    st.markdown("<div style='text-align:center; margin: 20px 0; color: #444; font-weight: bold;'>OU</div>", unsafe_allow_html=True)
+    
+    # Upload de Arquivo
+    uploaded_file = st.file_uploader("Escolha seu Arquivo ou Arraste até aqui", type=["mp4", "mov"], label_visibility="collapsed")
+    
+    if uploaded_file:
+        st.success("Vídeo carregado! Clique abaixo para processar.")
+        if st.button("🚀 GERAR LEGENDAS (0/3 Grátis)", use_container_width=True):
+            st.write("Processando seu vídeo...")
+            
+    st.markdown('</div>', unsafe_allow_html=True)
 
-# ==============================
-# UPLOAD
-# ==============================
-video = st.file_uploader("Upload video", type=["mp4", "mov"])
-
-if video:
-    st.video(video)
-
-    if st.button("🚀 Generate TikTok Captions"):
-
-        if used >= limit:
-            st.error("Limit reached")
-        else:
-            st.info("Processing...")
-
-            with tempfile.NamedTemporaryFile(delete=False) as tmp:
-                tmp.write(video.read())
-                video_path = tmp.name
-
-            try:
-                clip = VideoFileClip(video_path)
-
-                # extrair áudio
-                audio_path = video_path + ".mp3"
-                clip.audio.write_audiofile(audio_path)
-
-                # ==============================
-                # TRANSCRIÇÃO COM TIMESTAMPS
-                # ==============================
-                with open(audio_path, "rb") as f:
-                    transcription = client.audio.transcriptions.create(
-                        file=f,
-                        model="whisper-large-v3",
-                        response_format="verbose_json"
-                    )
-
-                words = []
-                for seg in transcription.segments:
-                    for w in seg["words"]:
-                        words.append(w)
-
-                full_text = [w["word"] for w in words]
-
-                text_clips = []
-
-                for i, word in enumerate(words):
-                    start = word["start"]
-                    end = word["end"]
-
-                    # montar frase com palavra destacada
-                    styled_text = ""
-                    for j, w in enumerate(full_text):
-                        if j == i:
-                            styled_text += f"<span foreground='yellow'>{w}</span> "
-                        else:
-                            styled_text += f"<span foreground='white'>{w}</span> "
-
-                    txt_clip = (
-                        TextClip(
-                            styled_text,
-                            fontsize=60,
-                            method='caption',
-                            size=(clip.w - 100, None),
-                            align='center'
-                        )
-                        .set_position(("center", "bottom"))
-                        .set_start(start)
-                        .set_duration(end - start)
-                    )
-
-                    text_clips.append(txt_clip)
-
-                final = CompositeVideoClip([clip] + text_clips)
-
-                output = video_path + "_tiktok.mp4"
-                final.write_videofile(output, fps=24)
-
-                st.success("✅ Done!")
-
-                st.video(output)
-
-                with open(output, "rb") as f:
-                    st.download_button(
-                        "⬇️ Download Video",
-                        f,
-                        file_name="tiktok_caption.mp4"
-                    )
-
-                st.session_state.usage[today] += 1
-
-            except Exception as e:
-                st.error("Error processing")
-
-            finally:
-                if os.path.exists(video_path):
-                    os.remove(video_path)
+# --- 5. RODAPÉ ---
+st.markdown("""
+    <div class="footer-tech">
+        🔴 Com tecnologia da <b>Groq & OpenAI</b>
+    </div>
+""", unsafe_allow_html=True)
