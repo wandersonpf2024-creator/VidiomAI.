@@ -1,9 +1,3 @@
 streamlit
-supabase
-openai-whisper
 moviepy==1.0.3
 groq
-Pillow
-pydub
-proglog
-requests
