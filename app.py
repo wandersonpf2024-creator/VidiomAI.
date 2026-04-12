@@ -51,28 +51,28 @@ def processar_conteudo_ia(entrada_usuario):
 
 # 4. Função para desenhar a imagem do post
 def gerar_imagem_post(headline):
-    # Cria uma imagem quadrada de 1080x1080
     width, height = 1080, 1080
-    # Fundo em um tom de vermelho escuro premium
     image = Image.new('RGB', (width, height), color='#A50000')
     draw = ImageDraw.Draw(image)
     
-    # Tenta usar a fonte padrão (em servidores é a forma mais segura de não dar erro)
     try:
-        # Se você subir uma fonte .ttf para o seu GitHub, mude a linha abaixo para:
-        # font = ImageFont.truetype("sua-fonte.ttf", 80)
-        font = ImageFont.load_default()
+        # Tenta carregar a fonte que você subiu (mude o nome se necessário)
+        # Se não tiver o arquivo ainda, ele vai para o except
+        font = ImageFont.truetype("Montserrat-Bold.ttf", 90) 
     except:
+        # Se falhar, ele usa a padrão mas tenta aumentar (o que é limitado)
         font = ImageFont.load_default()
 
-    # Quebra o texto automaticamente para não sair da imagem
-    linhas = textwrap.wrap(headline, width=15)
+    # Quebra o texto mais curto para as letras ficarem grandes
+    linhas = textwrap.wrap(headline.upper(), width=12)
     
-    y_text = 400
+    # Calcula a altura total do bloco de texto para centralizar verticalmente
+    y_text = 540 - (len(linhas) * 50) 
+    
     for linha in linhas:
-        # Desenha o texto (branco e centralizado horizontalmente de forma simples)
-        draw.text((150, y_text), linha.upper(), fill="white", font=font)
-        y_text += 100
+        # Centraliza horizontalmente (ajuste aproximado para 1080px)
+        draw.text((100, y_text), linha, fill="white", font=font)
+        y_text += 110 # Espaçamento entre linhas
 
     return image
 
