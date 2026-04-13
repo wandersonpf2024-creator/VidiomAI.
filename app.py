@@ -1,62 +1,59 @@
-import streamlit as st
+from flask import Flask, request
+import stripe
 from supabase import create_client
 
-st.set_page_config(page_title="Admin Panel", layout="wide")
+app = Flask(__name__)
+
+# KEYS
+stripe.api_key = "SUA_STRIPE_SECRET_KEY"
 
 supabase = create_client(
-    st.secrets["SUPABASE_URL"],
-    st.secrets["SUPABASE_KEY"]
+    "SUA_SUPABASE_URL",
+    "SUA_SUPABASE_KEY"
 )
 
-# 🔐 LOGIN ADMIN SIMPLES
-password = st.text_input("Admin Password", type="password")
+# WEBHOOK SECRET
+endpoint_secret = "SEU_WEBHOOK_SECRET"
 
-if password != "admin123":
-    st.stop()
+@app.route('/webhook', methods=['POST'])
+def webhook():
+    payload = request.data
+    sig_header = request.headers.get('stripe-signature')
 
-st.title("🧠 Admin Dashboard")
-
-# 📊 BUSCAR USUÁRIOS
-res = supabase.table("users").select("*").execute()
-users = res.data
-
-# 📋 LISTA
-for user in users:
-    st.markdown("---")
-    
-    col1, col2, col3, col4 = st.columns(4)
-    
-    with col1:
-        st.write(f"📧 {user['email']}")
-    
-    with col2:
-        new_credits = st.number_input(
-            f"Credits_{user['id']}",
-            value=user["credits"]
+    try:
+        event = stripe.Webhook.construct_event(
+            payload, sig_header, endpoint_secret
         )
-    
-    with col3:
-        new_plan = st.selectbox(
-            f"Plan_{user['id']}",
-            ["free", "pro", "elite"],
-            index=["free","pro","elite"].index(user["plan"])
-        )
-    
-    with col4:
-        if st.button(f"Update {user['email']}"):
+    except Exception as e:
+        return str(e), 400
+
+    # PAGAMENTO CONCLUÍDO
+    if event['type'] == 'checkout.session.completed':
+        session = event['data']['object']
+
+        email = session['customer_details']['email']
+
+        # DEFINE CRÉDITOS
+        amount = session['amount_total']
+
+        if amount == 399:
+            credits = 10
+        elif amount == 799:
+            credits = 50
+        else:
+            credits = 9999
+
+        # ATUALIZA NO BANCO
+        user = supabase.table("users").select("*").eq("email", email).execute().data
+
+        if user:
+            current = user[0]["credits"]
+
             supabase.table("users").update({
-                "credits": new_credits,
-                "plan": new_plan
-            }).eq("id", user["id"]).execute()
-            
-            st.success("Updated!")
+                "credits": current + credits
+            }).eq("email", email).execute()
 
-# 🔥 RESET GLOBAL
-st.markdown("## ⚠️ Reset All Users")
+    return "OK", 200
 
-if st.button("Reset Credits to 3"):
-    supabase.table("users").update({
-        "credits": 3
-    }).neq("id", "0").execute()
-
-    st.success("All users reset!")
+if __name__ == "__main__":
+    app.run(port=4242)
