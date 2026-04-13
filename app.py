@@ -5,276 +5,244 @@ from groq import Groq
 from datetime import datetime
 import time
 
-# PDF
-from reportlab.platypus import SimpleDocTemplate, Paragraph
-from reportlab.lib.styles import getSampleStyleSheet
-from reportlab.lib.pagesizes import letter
-
 # ------------------ CONFIG ------------------
-st.set_page_config(page_title="NutriScan AI", layout="wide")
+st.set_page_config(page_title="NutriScan AI | Global", layout="wide")
 
 # ------------------ LOGIN ------------------
 if "user" not in st.session_state:
     st.session_state.user = None
 
 if not st.session_state.user:
-    st.title("Welcome to NutriScan AI")
-    email = st.text_input("Enter your email")
-
-    if st.button("Continue"):
-        if email:
-            st.session_state.user = email
-            st.rerun()
-
+    st.markdown("""
+        <style>
+        .stApp { background: #020617; }
+        .login-box {
+            background: rgba(255,255,255,0.05);
+            padding: 40px;
+            border-radius: 20px;
+            border: 1px solid #22c55e;
+            text-align: center;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+    
+    col_l1, col_l2, col_l3 = st.columns([1, 2, 1])
+    with col_l2:
+        st.markdown('<div class="login-box">', unsafe_allow_html=True)
+        st.title("🔐 Welcome")
+        email = st.text_input("Enter your email to start:")
+        if st.button("Access Platform", use_container_width=True):
+            if email:
+                st.session_state.user = email
+                st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
     st.stop()
 
-# ------------------ CSS PREMIUM ------------------
+# ------------------ CSS PREMIUM UNIFICADO ------------------
 st.markdown("""
 <style>
-
-/* ANIMAÇÃO GLOBAL */
-.block-container {
-    animation: fadeIn 1s ease-in-out;
-}
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(20px); }
-    to { opacity: 1; transform: translateY(0); }
+/* ANIMAÇÃO E FUNDO */
+.stApp {
+    background: #020617;
+    color: white !important;
 }
 
 /* HERO */
 .hero {
     position: relative;
-    height: 420px;
+    height: 400px;
     border-radius: 25px;
     overflow: hidden;
     margin-bottom: 40px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
 }
 .hero img {
-    width: 100%;
-    height: 100%;
+    width: 100%; height: 100%;
     object-fit: cover;
-    filter: brightness(0.6);
+    filter: brightness(0.5);
 }
-.hero::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(to top, rgba(0,0,0,0.8), transparent);
-}
-
-/* TEXTO HERO */
 .hero-text {
-    position: absolute;
-    bottom: 40px;
-    left: 40px;
-    color: white;
+    position: absolute; bottom: 40px; left: 40px;
+    color: white; z-index: 2;
 }
 .hero-text h1 {
-    font-size: 3.5rem;
-    font-weight: 900;
-    background: linear-gradient(90deg,#22c55e,#3b82f6,#22c55e);
-    background-size: 200%;
+    font-size: 4rem; font-weight: 900;
+    background: linear-gradient(90deg, #22c55e, #3b82f6);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
-    animation: shine 6s linear infinite;
-}
-@keyframes shine {
-    0% { background-position: 0% }
-    100% { background-position: 200% }
 }
 
-/* INPUT */
-textarea {
-    background: #020617 !important;
-    border-radius: 15px !important;
-    color: white !important;
-}
-
-/* BOTÃO */
-.stButton button {
-    background: linear-gradient(90deg,#22c55e,#3b82f6);
-    color: black;
-    border-radius: 12px;
-    padding: 14px;
-    font-weight: bold;
-    transition: 0.3s;
-}
-.stButton button:hover {
-    transform: scale(1.05);
-    box-shadow: 0 0 20px #22c55e;
-}
-
-/* CARDS */
+/* PRICING CARDS PREMIUM */
 .price-card {
-    background: rgba(255,255,255,0.05);
-    padding: 25px;
-    border-radius: 20px;
-    transition: 0.3s;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 25px;
+    padding: 30px;
+    text-align: center;
+    transition: 0.4s;
+    height: 100%;
+    position: relative;
 }
 .price-card:hover {
     transform: translateY(-10px);
-    box-shadow: 0 0 25px #22c55e55;
+    border-color: #22c55e;
+    background: rgba(34, 197, 94, 0.05);
 }
-.best {
-    border: 2px solid #22c55e;
+.best-seller {
+    border: 2px solid #22c55e !important;
 }
+.badge {
+    background: #22c55e; color: black;
+    padding: 4px 15px; border-radius: 50px;
+    font-size: 0.7rem; font-weight: 900;
+    position: absolute; top: -12px; left: 50%;
+    transform: translateX(-50%);
+}
+.old-price { text-decoration: line-through; color: #666; font-size: 0.9rem; }
 
-/* BOTÃO LINK */
-.buy {
-    display:block;
-    padding:10px;
-    background:#22c55e;
-    text-align:center;
-    border-radius:50px;
-    margin-top:10px;
-    color:black;
-    font-weight:bold;
+/* BOTAO COMPRA */
+.buy-btn {
+    display: block; padding: 12px;
+    background: #22c55e; color: black !important;
+    border-radius: 12px; font-weight: bold;
+    text-decoration: none; margin-top: 20px;
+    transition: 0.3s;
 }
+.buy-btn:hover { background: #16a34a; box-shadow: 0 0 15px #22c55e; }
 
 #MainMenu, footer, header {visibility: hidden;}
-
 </style>
 """, unsafe_allow_html=True)
 
-# ------------------ HERO ------------------
+# ------------------ HERO SECTION ------------------
 st.markdown("""
 <div class="hero">
-<img src="https://images.unsplash.com/photo-1490645935967-10de6ba17061?q=80&w=2070">
-<div class="hero-text">
-<h1>NUTRISCAN AI</h1>
-<p>Your AI Nutrition & Fitness Planner</p>
-</div>
+    <img src="https://images.unsplash.com/photo-1490645935967-10de6ba17061?q=80&w=2070">
+    <div class="hero-text">
+        <h1>NUTRISCAN AI</h1>
+        <p>Your World-Class AI Nutrition & Fitness Coach</p>
+    </div>
 </div>
 """, unsafe_allow_html=True)
 
-# ------------------ API ------------------
-groq_client = Groq(api_key=st.secrets["GROQ_API_KEY"])
-supabase = create_client(
-    st.secrets["SUPABASE_URL"],
-    st.secrets["SUPABASE_KEY"]
-)
+# ------------------ API SETUP ------------------
+try:
+    groq_client = Groq(api_key=st.secrets["GROQ_API_KEY"])
+    supabase = create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
+except:
+    st.error("Check your API keys in Secrets.")
 
-# ------------------ FUNÇÃO USO ------------------
 def check_usage():
     try:
-        res = supabase.table("refeicoes").select("*").execute()
+        res = supabase.table("refeicoes").select("id").execute()
         return len(res.data)
-    except:
-        return 0
+    except: return 0
 
-# ------------------ PDF ------------------
-def gerar_pdf(texto):
-    file = "/mnt/data/plano.pdf"
-    doc = SimpleDocTemplate(file, pagesize=letter)
-    styles = getSampleStyleSheet()
-    story = [Paragraph(l, styles["Normal"]) for l in texto.split("\n")]
-    doc.build(story)
-    return file
-
-# ------------------ MAIN ------------------
+# ------------------ MAIN GENERATOR ------------------
 usage = check_usage()
 limit = 3
 
-st.subheader("Generate your plan")
+col_m1, col_m2, col_m3 = st.columns([1, 4, 1])
+with col_m2:
+    st.subheader("🛠️ Generate Custom Plan")
+    query = st.text_area("What's your goal?", placeholder="Ex: 7-day keto plan for fat loss...", height=120)
 
-query = st.text_area("Describe your goal:")
+    if usage >= limit:
+        st.warning("⚠️ Daily limit reached. Please upgrade to Pro below.")
+    else:
+        st.write(f"Credits used: **{usage}/{limit}**")
+        if st.button("GENERATE PLAN 🚀", use_container_width=True):
+            if query:
+                placeholder = st.empty()
+                with placeholder.container():
+                    st.write("🤖 AI is analyzing your goals...")
+                    bar = st.progress(0)
+                    for i in range(100):
+                        time.sleep(0.01)
+                        bar.progress(i+1)
+                
+                try:
+                    resp = groq_client.chat.completions.create(
+                        model="llama-3.3-70b-versatile",
+                        messages=[{"role":"system","content":"You are a pro nutritionist. English only."},
+                                  {"role":"user","content":query}]
+                    )
+                    plan = resp.choices[0].message.content
+                    placeholder.empty()
 
-if usage >= limit:
-    st.warning("Free limit reached.")
-else:
-    st.write(f"Credits: {usage}/{limit}")
+                    # Efeito de digitação (Typing Effect)
+                    out = st.empty()
+                    text = ""
+                    for char in plan:
+                        text += char
+                        out.markdown(f'<div style="background:rgba(255,255,255,0.05);padding:25px;border-radius:15px;border:1px solid #22c55e;">{text}</div>', unsafe_allow_html=True)
+                    
+                    # Salvar no Banco
+                    supabase.table("refeicoes").insert({"nome_prato": query[:50]}).execute()
+                    st.success("Plan generated! Check history below.")
+                    
+                except Exception as e:
+                    st.error(f"Error: {e}")
 
-    if st.button("GENERATE PLAN 🚀"):
-        if query:
-            placeholder = st.empty()
+# ------------------ PRICING SECTION (PREMIUM) ------------------
+st.markdown("<br><br><h2 style='text-align:center;'>💎 UPGRADE TO PRO</h2>", unsafe_allow_html=True)
+st.markdown("<p style='text-align:center; color:#666;'>Unlock the full power of AI-driven nutrition.</p>", unsafe_allow_html=True)
 
-            with placeholder.container():
-                st.write("🤖 AI is thinking...")
-                bar = st.progress(0)
-                for i in range(100):
-                    time.sleep(0.01)
-                    bar.progress(i+1)
+p1, p2, p3 = st.columns(3)
 
-            try:
-                resp = groq_client.chat.completions.create(
-                    model="llama-3.3-70b-versatile",
-                    messages=[{"role":"user","content":query}]
-                )
-
-                plan = resp.choices[0].message.content
-
-                placeholder.empty()
-                output = st.empty()
-                text = ""
-
-                for c in plan:
-                    text += c
-                    output.markdown(f"""
-                    <div style="background:#111;padding:20px;border-radius:15px;border:1px solid #22c55e;">
-                    {text}
-                    </div>
-                    """, unsafe_allow_html=True)
-                    time.sleep(0.002)
-
-                # salvar
-                supabase.table("refeicoes").insert({
-                    "nome_prato": query
-                }).execute()
-
-                # PDF
-                pdf = gerar_pdf(plan)
-                with open(pdf, "rb") as f:
-                    st.download_button("📄 Download PDF", f, "plan.pdf")
-
-            except Exception as e:
-                st.error(e)
-
-# ------------------ STRIPE ------------------
-STRIPE_BASIC = "https://buy.stripe.com/SEU_LINK_BASIC"
-STRIPE_PRO = "https://buy.stripe.com/SEU_LINK_PRO"
-STRIPE_ELITE = "https://buy.stripe.com/SEU_LINK_ELITE"
-
-st.markdown("## 💎 Upgrade")
-
-c1, c2, c3 = st.columns(3)
-
-with c1:
+with p1:
     st.markdown(f"""
     <div class="price-card">
-    <h3>Basic</h3>
-    <h2>$3.99</h2>
-    <a href="{STRIPE_BASIC}" class="buy">Buy</a>
+        <h3>Basic Pack</h3>
+        <h2>$3.99</h2>
+        <p style="color:#22c55e;">10 Credits</p>
+        <ul style="text-align:left; font-size:0.8rem; color:#888;">
+            <li>✓ Advanced Diet Plans</li>
+            <li>✓ English Support</li>
+        </ul>
+        <a href="LINK_PAYPAL_1" class="buy-btn">GET STARTED</a>
     </div>
     """, unsafe_allow_html=True)
 
-with c2:
+with p2:
     st.markdown(f"""
-    <div class="price-card best">
-    <h3>Pro</h3>
-    <h2>$7.99</h2>
-    <a href="{STRIPE_PRO}" class="buy">Best</a>
+    <div class="price-card best-seller">
+        <div class="badge">MOST POPULAR</div>
+        <h3>Fitness Pro</h3>
+        <span class="old-price">$14.99</span>
+        <h2>$7.99</h2>
+        <p style="color:#22c55e;">50 Credits</p>
+        <ul style="text-align:left; font-size:0.8rem; color:#888;">
+            <li>✓ Everything in Basic</li>
+            <li>✓ Custom Workout Routine</li>
+            <li>✓ Save 50% Today</li>
+        </ul>
+        <a href="LINK_PAYPAL_2" class="buy-btn">BUY PRO</a>
     </div>
     """, unsafe_allow_html=True)
 
-with c3:
+with p3:
     st.markdown(f"""
     <div class="price-card">
-    <h3>Elite</h3>
-    <h2>$47</h2>
-    <a href="{STRIPE_ELITE}" class="buy">Go</a>
+        <h3>Elite Annual</h3>
+        <span class="old-price">$99.00</span>
+        <h2>$47.90</h2>
+        <p style="color:#22c55e;">Unlimited Year</p>
+        <ul style="text-align:left; font-size:0.8rem; color:#888;">
+            <li>✓ Full Unlimited Access</li>
+            <li>✓ Priority Processing</li>
+            <li>✓ Best Value Plan</li>
+        </ul>
+        <a href="LINK_PAYPAL_3" class="buy-btn">GO ELITE</a>
     </div>
     """, unsafe_allow_html=True)
 
-# ------------------ HISTÓRICO ------------------
-with st.expander("📂 History"):
+# ------------------ HISTORY ------------------
+st.markdown("<br>", unsafe_allow_html=True)
+with st.expander("📂 My Recent Activity"):
     try:
-        res = supabase.table("refeicoes")\
-            .select("nome_prato, created_at")\
-            .order("created_at", desc=True)\
-            .limit(5)\
-            .execute()
-
+        res = supabase.table("refeicoes").select("nome_prato").order("created_at", desc=True).limit(5).execute()
         for i in res.data:
             st.write(f"✅ {i['nome_prato']}")
     except:
-        st.write("No history yet.")
+        st.write("No history found.")
