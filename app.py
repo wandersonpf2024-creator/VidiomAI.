@@ -3,9 +3,9 @@ from supabase import create_client
 from groq import Groq
 
 # --- 1. CONFIGURAÇÃO DA PÁGINA ---
-st.set_page_config(page_title="NutriScan IA | Planner", layout="centered")
+st.set_page_config(page_title="NutriScan IA | Planner", layout="wide")
 
-# --- CSS PARA CORRIGIR O VISUAL E O TEXTO ---
+# --- CSS PARA DESIGN MODERNO E TEXTO LARGO ---
 st.markdown("""
     <style>
     .stApp {
@@ -21,77 +21,102 @@ st.markdown("""
         background: linear-gradient(135deg, #22c55e 0%, #3b82f6 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
-        font-size: 3rem; font-weight: 900;
+        font-size: 3.5rem; font-weight: 900;
+        margin-bottom: 10px;
     }
-    .card {
-        background: rgba(255, 255, 255, 0.07);
+    .result-card {
+        background: rgba(255, 255, 255, 0.08);
         backdrop-filter: blur(15px);
         border-radius: 20px;
         border: 1px solid rgba(255, 255, 255, 0.1);
-        padding: 25px;
-        margin-top: 20px;
-        white-space: pre-wrap; /* EVITA O TEXTO VERTICAL */
-        word-wrap: break-word;
+        padding: 30px;
+        margin: 20px auto;
+        max-width: 900px;
+        line-height: 1.6;
+        color: #ffffff;
+        font-size: 1.1rem;
+        white-space: pre-wrap;
+    }
+    /* Estilização da Tabela de Histórico */
+    .stDataFrame, .stTable {
+        background: rgba(0, 0, 0, 0.5) !important;
+        border-radius: 10px;
     }
     #MainMenu, footer, header {visibility: hidden;}
     </style>
 """, unsafe_allow_html=True)
 
-# --- 2. CONEXÃO ---
+# --- 2. CONEXÃO SEGURA ---
 try:
     groq_client = Groq(api_key=st.secrets["GROQ_API_KEY"])
     supabase = create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
 except Exception as e:
-    st.error("Erro nas chaves de acesso.")
+    st.error("Erro nas chaves: Verifique os Secrets no Streamlit Cloud.")
     st.stop()
 
-# --- 3. FUNÇÃO COM MODELO ATUALIZADO (Llama 3.3) ---
+# --- 3. FUNÇÃO DE GERAÇÃO COM FALLBACK ---
 def gerar_plano_fitness(comando_usuario):
-    try:
-        # Atualizado para o modelo Llama 3.3 70b (Versão mais recente)
-        response = groq_client.chat.completions.create(
-            model="llama-3.3-70b-versatile", 
-            messages=[
-                {"role": "system", "content": "Você é um nutricionista e personal trainer expert. Crie planos de emagrecimento, receitas e treinos detalhados."},
-                {"role": "user", "content": comando_usuario}
-            ],
-            temperature=0.7
-        )
-        return response.choices[0].message.content
-    except Exception as e:
-        # Fallback caso o 3.3 falhe, tenta o 3.1
+    modelos = ["llama-3.3-70b-versatile", "llama-3.1-70b-versatile"]
+    
+    for modelo in modelos:
         try:
             response = groq_client.chat.completions.create(
-                model="llama-3.1-70b-versatile",
-                messages=[{"role": "user", "content": comando_usuario}]
+                model=modelo,
+                messages=[
+                    {"role": "system", "content": "Você é um nutricionista expert. Gere planos de emagrecimento com receitas detalhadas e passo a passo."},
+                    {"role": "user", "content": comando_usuario}
+                ],
+                temperature=0.7
             )
             return response.choices[0].message.content
         except:
-            return f"Erro na Groq: O modelo foi atualizado. Verifique o console.groq.com"
+            continue
+    return "❌ Erro ao conectar com a IA. Tente novamente."
 
 # --- 4. INTERFACE ---
-st.markdown('<h1 class="main-title">NutriScan Planner</h1>', unsafe_allow_html=True)
+st.markdown('<h1 class="main-title">NUTRISCAN IA</h1>', unsafe_allow_html=True)
 
-comando = st.text_area("O que você deseja hoje?", placeholder="Ex: Dieta para perder 10kg em 30 dias...", height=150)
+col1, col2, col3 = st.columns([1, 4, 1])
+with col2:
+    comando = st.text_area("Descreva seu objetivo ou peça uma receita:", 
+                          placeholder="Ex: Plano para perder 5kg em 15 dias com foco em proteínas.", 
+                          height=150)
+    
+    if st.button("GERAR MEU PLANO FITNESS 🚀", use_container_width=True):
+        if comando:
+            with st.spinner("🍳 A IA está criando sua estratégia..."):
+                plano = gerar_plano_fitness(comando)
+                
+                # Exibe o resultado
+                st.markdown(f'<div class="result-card">{plano}</div>', unsafe_allow_html=True)
+                
+                # --- SALVANDO NO SUPABASE (Com o nome real da consulta) ---
+                try:
+                    # Aqui usamos o próprio comando do usuário como nome no histórico
+                    resumo_pedido = comando[:50] + "..." if len(comando) > 50 else comando
+                    supabase.table("refeicoes").insert({
+                        "nome_prato": resumo_pedido, # Agora aparece o que o usuário pediu!
+                        "calorias": "Plano Gerado",
+                        "macros": "Consultar IA"
+                    }).execute()
+                except Exception as e:
+                    pass 
+        else:
+            st.warning("Por favor, digite seu objetivo primeiro!")
 
-if st.button("GERAR PLANO AGORA 🚀", use_container_width=True):
-    if comando:
-        with st.spinner("IA Gerando seu plano..."):
-            plano = gerar_plano_fitness(comando)
-            
-            # Exibição do Plano Gerado (Com CSS para não quebrar texto)
-            st.markdown(f'<div class="card">{plano}</div>', unsafe_allow_html=True)
-            
-            # Tenta salvar no banco
-            try:
-                supabase.table("refeicoes").insert({"nome_prato": "Plano: " + comando[:20], "calorias": "Foco Fitness", "macros": "Vários"}).execute()
-            except: pass
-    else:
-        st.warning("Escreva seu objetivo primeiro!")
-
-st.divider()
-if st.checkbox("Ver Histórico"):
+# --- 5. HISTÓRICO PERSONALIZADO ---
+st.markdown("<br><br>", unsafe_allow_html=True)
+with st.expander("📚 Ver Seus Últimos Pedidos", expanded=False):
     try:
-        res = supabase.table("refeicoes").select("*").order("created_at", desc=True).limit(5).execute()
-        st.table(res.data)
-    except: st.write("Histórico vazio.")
+        # Busca os dados no Supabase
+        res = supabase.table("refeicoes").select("created_at, nome_prato").order("created_at", desc=True).limit(10).execute()
+        
+        if res.data:
+            # Exibe de forma mais amigável
+            for item in res.data:
+                data_formatada = item['created_at'][:10] # Pega apenas a data YYYY-MM-DD
+                st.write(f"🕒 **{data_formatada}** | 📝 {item['nome_prato']}")
+        else:
+            st.info("Você ainda não gerou nenhum plano.")
+    except Exception as e:
+        st.write("Erro ao carregar histórico.")
