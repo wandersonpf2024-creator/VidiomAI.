@@ -1,99 +1,63 @@
 import streamlit as st
 from supabase import create_client
 from groq import Groq
-import base64
 
-# --- 1. CONFIGURAÇÃO DA PÁGINA E DESIGN MODERNO ---
+# --- 1. CONFIGURAÇÃO DA PÁGINA E DESIGN PREMIUM ---
 st.set_page_config(
-    page_title="NutriScan IA | Fitness Style",
-    layout="centered", # Mantém o conteúdo focado no meio da tela
+    page_title="NutriScan IA | Planner Fitness",
+    layout="centered",
     initial_sidebar_state="collapsed"
 )
 
-# --- CSS AVANÇADO PARA PLANO DE FUNDO E ESTILIZAÇÃO ---
+# --- CSS PERSONALIZADO (Layout Moderno com Fundo Fitness) ---
 st.markdown("""
     <style>
-    /* 1. Imagem de Fundo com Overlay Escuro (Mulheres Fitness) */
     .stApp {
-        background-image: linear-gradient(rgba(0, 0, 0, 0.85), rgba(0, 0, 0, 0.95)), 
-                          url('https://images.unsplash.com/photo-1517836357463-d25dfeac3438?q=80&w=2070'); /* Link de imagem fitness profissional */
+        background-image: linear-gradient(rgba(0, 0, 0, 0.8), rgba(0, 0, 0, 0.9)), 
+                          url('https://images.unsplash.com/photo-1517836357463-d25dfeac3438?q=80&w=2070');
         background-size: cover;
         background-position: center;
         background-attachment: fixed;
         color: white;
     }
 
-    /* 2. Título Principal com Gradiente Neon */
     .main-title {
         text-align: center;
-        background: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%);
+        background: linear-gradient(135deg, #22c55e 0%, #3b82f6 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
-        font-size: 3.5rem;
+        font-size: 3rem;
         font-weight: 900;
-        text-transform: uppercase;
-        letter-spacing: -2px;
-        margin-bottom: 5px;
-        text-shadow: 0px 4px 15px rgba(79, 172, 254, 0.5);
-    }
-    
-    .sub-title {
-        text-align: center;
-        color: #a1a1aa;
-        font-size: 1.1rem;
-        margin-bottom: 30px;
+        margin-bottom: 0px;
     }
 
-    /* 3. Estilização dos Cards (Visual de Vidro / Glassmorphism) */
-    .stDiv > div > div > .stMarkdown, .card, .recipe-card {
-        background: rgba(255, 255, 255, 0.03) !important;
-        backdrop-filter: blur(10px) !important;
-        -webkit-backdrop-filter: blur(10px) !important;
-        border-radius: 20px !important;
-        border: 1px solid rgba(255, 255, 255, 0.05) !important;
-        padding: 25px !important;
-        margin-top: 20px !important;
-        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37) !important;
+    .card {
+        background: rgba(255, 255, 255, 0.07);
+        backdrop-filter: blur(15px);
+        -webkit-backdrop-filter: blur(15px);
+        border-radius: 20px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        padding: 25px;
+        margin-top: 20px;
+        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
     }
 
-    /* Card específico da Receita (Verde Fitness) */
-    .recipe-card {
-        border: 1px solid rgba(16, 185, 129, 0.3) !important;
-        background: rgba(16, 185, 129, 0.05) !important;
+    .stTextArea textarea {
+        background-color: rgba(0, 0, 0, 0.5) !important;
+        color: white !important;
+        border: 1px solid #22c55e !important;
+        border-radius: 15px !important;
     }
 
-1.    /* 4. Botões Modernos e Arredondos */
     .stButton > button {
         border-radius: 50px !important;
+        background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%) !important;
+        color: white !important;
         font-weight: bold !important;
-        text-transform: uppercase !important;
-        letter-spacing: 1px !important;
-        transition: all 0.3s ease !important;
-    }
-    
-    /* Botão Primário (Analisar) com Gradiente */
-    .stButton > button[kind="primary"] {
-        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%) !important;
         border: none !important;
-        color: black !important;
-    }
-    
-    .stButton > button[kind="primary"]:hover {
-        transform: translateY(-2px) !important;
-        box-shadow: 0px 5px 20px rgba(0, 242, 254, 0.6) !important;
+        height: 50px;
     }
 
-1.    /* 5. Inputs (Câmera, Checkbox) */
-    .stCameraInput > div {
-        border-radius: 20px !important;
-        border: 2px solid rgba(255, 255, 255, 0.1) !important;
-    }
-    
-    .stCheckbox {
-        color: #a1a1aa !important;
-    }
-    
-    /* Esconde menus padrões do Streamlit para visual mais limpo */
     #MainMenu, footer, header {visibility: hidden;}
     </style>
 """, unsafe_allow_html=True)
@@ -107,100 +71,67 @@ try:
     groq_client = Groq(api_key=GROQ_KEY)
     supabase = create_client(S_URL, S_KEY)
 except Exception as e:
-    st.error("⚠️ Erro nos Secrets do Streamlit Cloud.")
+    st.error("⚠️ Verifique as chaves GROQ_API_KEY, SUPABASE_URL e SUPABASE_KEY nos Secrets.")
     st.stop()
 
-# --- 3. FUNÇÕES DE IA ---
-
-def analisar_imagem_com_ia(foto_bytes):
-    img_b64 = base64.b64encode(foto_bytes).decode('utf-8')
-    # Usando o modelo mais estável Atualmente (Llava)
-    modelo = "llava-v1.5-7b-4096-preview" 
+# --- 3. FUNÇÃO DE GERAÇÃO DE PLANO/RECEITA ---
+def gerar_plano_emagrecimento(comando_usuario):
     try:
+        # Usando o modelo Llama 3 70b para respostas complexas e detalhadas
         response = groq_client.chat.completions.create(
-            model=modelo,
-            messages=[{
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": "Nome do Prato | Calorias Estimadas | Macros"},
-                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img_b64}"}}
-                ]
-            }]
-        )
-        return response.choices[0].message.content
-    except: return "ERRO_IA"
-
-def gerar_receita_saudavel(nome_prato):
-    try:
-        response = groq_client.chat.completions.create(
-            model="llama3-8b-8192",
-            messages=[{
-                "role": "user",
-                "content": f"Sugira uma receita saudável e fitness inspirada no prato '{nome_prato}'. Liste ingredientes e preparo rápido."
-            }]
+            model="llama3-70b-8192",
+            messages=[
+                {
+                    "role": "system", 
+                    "content": "Você é um nutricionista e personal trainer expert em emagrecimento rápido e saudável. Crie planos detalhados, com receitas, dicas de treino e motivação."
+                },
+                {"role": "user", "content": comando_usuario}
+            ],
+            temperature=0.7
         )
         return response.choices[0].message.content
     except Exception as e:
-        return f"Erro ao gerar receita: {e}"
+        return f"Erro ao processar comando: {e}"
 
 # --- 4. INTERFACE ---
-st.markdown('<h1 class="main-title">NUTRISCAN IA</h1>', unsafe_allow_html=True)
-st.markdown('<p class="sub-title">A tecnologia que transforma sua foto em resultado fitness.</p>', unsafe_allow_html=True)
+st.markdown('<h1 class="main-title">NutriScan Planner</h1>', unsafe_allow_html=True)
+st.write("<p style='text-align:center; color:#a1a1aa;'>Digite seu objetivo (ex: 'Quero emagrecer 10kg em 30 dias')</p>", unsafe_allow_html=True)
 
-foto = st.camera_input("")
+# Campo de comando
+comando = st.text_area("Descreva seu objetivo ou peça uma receita:", placeholder="Ex: Crie um cardápio para emagrecer 5kg em 15 dias com receitas baratas.")
 
-if foto:
-    # Usando st.container para aplicar o estilo Glassmorphism
-    with st.container():
-        if st.button("ANALISAR AGORA 🚀", use_container_width=True, type="primary"):
-            with st.spinner("Analisando..."):
-                resultado = analisar_imagem_com_ia(foto.getvalue())
-                
-                if resultado != "ERRO_IA":
-                    try:
-                        partes = resultado.split('|')
-                        nome = partes[0].strip() if len(partes) > 0 else "Prato"
-                        cals = partes[1].strip() if len(partes) > 1 else "---"
-                        macs = partes[2].strip() if len(partes) > 2 else "---"
-
-                        st.session_state['ultimo_prato'] = nome
-                        
-                        # Exibição estilizada (Glassmorphism)
-                        st.markdown(f"""
-                        <div class="card">
-                            <h2 style='color: #4facfe; margin-top:0;'>🍴 {nome}</h2>
-                            <p style='font-size: 1.2rem;'>🔥 <b>{cals}</b></p>
-                            <p style='font-size: 1.1rem; color: #a1a1aa;'>🥩 Macros: {macs}</p>
-                        </div>
-                        """, unsafe_allow_html=True)
-                        
-                        supabase.table("refeicoes").insert({"nome_prato": nome, "calorias": cals, "macros": macs}).execute()
-                        st.success("✅ Salvo no histórico!")
-                    except: st.error("Erro no formato da resposta da IA.")
-                else: st.error("Falha na análise. Tente novamente.")
-
-# --- 5. PARTE DAS RECEITAS ---
-if 'ultimo_prato' in st.session_state:
-    st.divider()
-    if st.button(f"🥗 CRIAR RECEITA FITNESS DE {st.session_state['ultimo_prato'].upper()}", use_container_width=True):
-        with st.spinner("Chef IA cozinhando..."):
-            receita = gerar_receita_saudavel(st.session_state['ultimo_prato'])
-            # Exibição estilizada da receita
+if st.button("GERAR MEU PLANO FITNESS 🚀", use_container_width=True):
+    if comando:
+        with st.spinner("A IA está montando seu plano personalizado..."):
+            plano = gerar_plano_emagrecimento(comando)
+            
+            # Exibição do Plano Gerado
             st.markdown(f"""
-            <div class="recipe-card">
-                <h3 style='color: #10b981; margin-top:0;'>🌱 Sugestão Saudável</h3>
-                <div style='color: #e4e4e7; line-height: 1.6;'>{receita.replace('', '<br>')}</div>
+            <div class="card">
+                <h3 style='color: #22c55e;'>📋 Seu Plano Personalizado:</h3>
+                <div style='line-height: 1.6;'>{plano.replace('', '<br>')}</div>
             </div>
             """, unsafe_allow_html=True)
+            
+            # Salva a consulta no histórico do Supabase
+            try:
+                supabase.table("refeicoes").insert({
+                    "nome_prato": "Plano Gerado: " + comando[:30] + "...",
+                    "calorias": "Personalizado",
+                    "macros": "Ver Plano"
+                }).execute()
+            except:
+                pass
+    else:
+        st.warning("Por favor, digite um comando primeiro!")
 
-# --- 6. HISTÓRICO ---
+# --- 5. HISTÓRICO ---
 st.divider()
-with st.expander("📊 Ver Histórico Recente", expanded=False):
+with st.expander("📚 Ver Histórico de Pedidos", expanded=False):
     try:
         res = supabase.table("refeicoes").select("*").order("created_at", desc=True).limit(5).execute()
-        if res.data: 
-            # Exibe histórico em formato simples
+        if res.data:
             for item in res.data:
-                st.write(f"📖 {item['nome_prato']} - {item['calorias']}")
-        else: st.info("Nenhuma refeição salva.")
-    except: st.write("Erro ao carregar.")
+                st.write(f"🔹 {item['nome_prato']}")
+    except:
+        st.write("Histórico indisponível.")
