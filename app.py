@@ -135,3 +135,14 @@ with col_m2:
                     }).execute()
                     st.rerun()
                 except Exception as e:
+                    st.error(f"Error: {e}")
+
+# ------------------ PRICING ------------------
+st.markdown("<br><h2 style='text-align:center;'>💎 UPGRADE TO PRO</h2>", unsafe_allow_html=True)
+p1, p2, p3 = st.columns(3)
+with p1:
+    st.markdown('<div class="price-card"><h3>Basic</h3><h2>$3.99</h2><p>10 Credits</p><a href="LINK1" class="buy-btn">BUY</a></div>', unsafe_allow_html=True)
+with p2:
+    st.markdown('<div class="price-card best-seller"><div class="badge">POPULAR</div><h3>Pro</h3><h2>$7.99</h2><p>50 Credits</p><a href="LINK2" class="buy-btn">BUY</a></div>', unsafe_allow_html=True)
+with p3:
+    st.markdown('<div class="price-card"><h3>Elite</h3><h2>$47.90</h2><p>Unlimited</p><a href="LINK3" class="buy-btn">BUY</a></div>', unsafe_allow_html=True)
