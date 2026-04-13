@@ -44,13 +44,14 @@ except Exception as e:
     st.stop()
 
 # --- 3. FUNÇÃO DE ANÁLISE (MODELOS ATUALIZADOS) ---
-def analisar_imagem_com_ia(foto_bytes):
+def def analisar_imagem_com_ia(foto_bytes):
     img_b64 = base64.b64encode(foto_bytes).decode('utf-8')
     
-    # Lista com os nomes oficiais e estáveis (sem o -preview)
+    # Tentaremos estas 3 variações. Uma delas VAI funcionar.
     modelos_para_testar = [
-        "llama-3.2-11b-vision",
-        "llama-3.2-90b-vision"
+        "llama-3.2-11b-vision-preview", # Algumas contas ainda usam assim
+        "llama-3.2-11b-vision",         # Nome estável
+        "llava-v1.5-7b-4096-preview"     # Modelo reserva de visão da Groq
     ]
     
     ultimo_erro = ""
@@ -62,19 +63,17 @@ def analisar_imagem_com_ia(foto_bytes):
                 messages=[{
                     "role": "user",
                     "content": [
-                        {"type": "text", "text": "Identifique o prato e estime calorias e macros. Responda APENAS no formato: Nome do Prato | Calorias | Macros"},
+                        {"type": "text", "text": "Nome do Prato | Calorias | Macros"},
                         {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img_b64}"}}
                     ]
-                }],
-                temperature=0.2
+                }]
             )
             return response.choices[0].message.content
         except Exception as e:
             ultimo_erro = str(e)
             continue 
             
-    return f"ERRO_IA: {ultimo_erro}"
-
+    return f"ERRO_IA: Nenhum modelo de visão disponível. Erro: {ultimo_erro}"
 # --- 4. INTERFACE ---
 st.markdown('<h1 class="main-title">NutriScan IA</h1>', unsafe_allow_html=True)
 st.write("<p style='text-align:center;'>Análise instantânea com Groq Llama 3.2 Vision</p>", unsafe_allow_html=True)
