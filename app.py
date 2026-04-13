@@ -4,9 +4,8 @@ from groq import Groq
 import base64
 
 # --- 1. CONFIGURAÇÃO DA PÁGINA ---
-st.set_page_config(page_title="VidiomAI | Nutri Vision", layout="centered")
+st.set_page_config(page_title="VidiomAI Nutri", layout="centered")
 
-# Estilo Dark Pro
 st.markdown("""
     <style>
     .stApp {
@@ -21,7 +20,7 @@ st.markdown("""
         font-size: 3rem;
         font-weight: bold;
     }
-    .status-card {
+    .card {
         background: rgba(255, 255, 255, 0.05);
         padding: 20px;
         border-radius: 15px;
@@ -33,6 +32,7 @@ st.markdown("""
 
 # --- 2. CONEXÃO COM SERVIÇOS (SECRETS) ---
 try:
+    # Busca chaves no painel 'Settings > Secrets' do Streamlit Cloud
     GROQ_KEY = st.secrets["GROQ_API_KEY"]
     S_URL = st.secrets["SUPABASE_URL"]
     S_KEY = st.secrets["SUPABASE_KEY"]
@@ -40,18 +40,18 @@ try:
     groq_client = Groq(api_key=GROQ_KEY)
     supabase = create_client(S_URL, S_KEY)
 except Exception as e:
-    st.error("⚠️ Erro nos Secrets: Verifique GROQ_API_KEY, SUPABASE_URL e SUPABASE_KEY no painel do Streamlit.")
+    st.error("⚠️ Erro nos Secrets: Verifique as chaves no painel do Streamlit.")
     st.stop()
 
-# --- 3. FUNÇÃO DE ANÁLISE (MODELOS ATUALIZADOS) ---
-def def analisar_imagem_com_ia(foto_bytes):
+# --- 3. FUNÇÃO DE ANÁLISE (CORRIGIDA) ---
+def analisar_imagem_com_ia(foto_bytes):
     img_b64 = base64.b64encode(foto_bytes).decode('utf-8')
     
-    # Tentaremos estas 3 variações. Uma delas VAI funcionar.
+    # Lista de modelos: Tentamos os mais novos, se falhar, usamos o estável (Llava)
     modelos_para_testar = [
-        "llama-3.2-11b-vision-preview", # Algumas contas ainda usam assim
-        "llama-3.2-11b-vision",         # Nome estável
-        "llava-v1.5-7b-4096-preview"     # Modelo reserva de visão da Groq
+        "llama-3.2-11b-vision-preview",
+        "llama-3.2-90b-vision-preview",
+        "llava-v1.5-7b-4096-preview" 
     ]
     
     ultimo_erro = ""
@@ -63,26 +63,27 @@ def def analisar_imagem_com_ia(foto_bytes):
                 messages=[{
                     "role": "user",
                     "content": [
-                        {"type": "text", "text": "Nome do Prato | Calorias | Macros"},
+                        {"type": "text", "text": "Identifique o prato e estime calorias e macros. Formato: Nome | Calorias | Macros"},
                         {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img_b64}"}}
                     ]
-                }]
+                }],
+                temperature=0.2
             )
             return response.choices[0].message.content
         except Exception as e:
             ultimo_erro = str(e)
             continue 
             
-    return f"ERRO_IA: Nenhum modelo de visão disponível. Erro: {ultimo_erro}"
+    return f"ERRO_IA: {ultimo_erro}"
+
 # --- 4. INTERFACE ---
 st.markdown('<h1 class="main-title">NutriScan IA</h1>', unsafe_allow_html=True)
-st.write("<p style='text-align:center;'>Análise instantânea com Groq Llama 3.2 Vision</p>", unsafe_allow_html=True)
 
-foto = st.camera_input("")
+foto = st.camera_input("Tire uma foto do seu prato")
 
 if foto:
     if st.button("ANALISAR REFEIÇÃO 🚀", use_container_width=True, type="primary"):
-        with st.spinner("IA processando imagem..."):
+        with st.spinner("IA analisando..."):
             
             resultado = analisar_imagem_com_ia(foto.getvalue())
             
@@ -90,41 +91,39 @@ if foto:
                 st.error(f"Erro na Groq: {resultado}")
             else:
                 try:
-                    # Divisão dos dados recebidos
+                    # Quebra a resposta em partes
                     partes = resultado.split('|')
-                    nome = partes[0].strip() if len(partes) > 0 else "Indefinido"
-                    cals = partes[1].strip() if len(partes) > 1 else "N/A"
-                    macs = partes[2].strip() if len(partes) > 2 else "N/A"
+                    nome = partes[0].strip() if len(partes) > 0 else "Prato"
+                    cals = partes[1].strip() if len(partes) > 1 else "---"
+                    macs = partes[2].strip() if len(partes) > 2 else "---"
                     
-                    # Exibição bonita
+                    # Exibe o resultado
                     st.markdown(f"""
-                    <div class="status-card">
+                    <div class="card">
                         <h3>🍽️ {nome}</h3>
-                        <p>🔥 <b>Calorias:</b> {cals}</p>
-                        <p>🥩 <b>Macros:</b> {macs}</p>
+                        <p>🔥 {cals}</p>
+                        <p>🥩 {macs}</p>
                     </div>
                     """, unsafe_allow_html=True)
                     
-                    # Salvando no Supabase (Tabela: refeicoes)
-                    dados_supabase = {
+                    # Salva no Supabase (Tabela: refeicoes)
+                    dados = {
                         "nome_prato": nome,
                         "calorias": cals,
                         "macros": macs
                     }
-                    supabase.table("refeicoes").insert(dados_supabase).execute()
-                    st.success("✅ Salvo no banco de dados!")
+                    supabase.table("refeicoes").insert(dados).execute()
+                    st.success("Salvo com sucesso!")
                     
                 except Exception as e:
-                    st.warning(f"IA funcionou, mas houve erro ao salvar: {e}")
+                    st.warning(f"Erro ao salvar no banco: {e}")
 
 # --- 5. HISTÓRICO ---
 st.divider()
 if st.checkbox("Ver Histórico"):
     try:
-        query = supabase.table("refeicoes").select("*").order("created_at", desc=True).limit(10).execute()
-        if query.data:
-            st.table(query.data)
-        else:
-            st.info("Nenhuma refeição encontrada.")
-    except Exception as e:
-        st.error(f"Erro ao carregar banco: {e}")
+        res = supabase.table("refeicoes").select("*").order("created_at", desc=True).limit(5).execute()
+        if res.data:
+            st.table(res.data)
+    except:
+        st.write("Ainda não há dados.")
