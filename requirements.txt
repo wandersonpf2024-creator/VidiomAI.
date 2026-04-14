@@ -1,6 +1,4 @@
 streamlit
-supabase
-groqstreamlit
 newspaper3k
 beautifulsoup4
 requests
@@ -9,3 +7,4 @@ groq
 supabase
 lxml
 nltk
+httpx
