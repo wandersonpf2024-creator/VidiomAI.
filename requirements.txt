@@ -4,3 +4,4 @@ groq
 pillow
 requests
 reportlab
+tavily-python
