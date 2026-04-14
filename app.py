@@ -1,56 +1,45 @@
-import streamlit as st
-from PIL import Image, ImageDraw, ImageFont
-import requests
-from io import BytesIO
+from tavily import TavilyClient
 
-# --- FUNÇÃO PARA ESCREVER TEXTO NA IMAGEM ---
-def criar_card(url_imagem, titulo):
-    # Baixa a imagem da notícia
-    response = requests.get(url_imagem)
-    img = Image.open(BytesIO(response.content))
-    
-    # Redimensiona para um padrão (ex: Post de Instagram)
-    img = img.resize((1080, 1080))
-    draw = ImageDraw.Draw(img)
-    
-    # Adiciona uma camada escura no topo para o texto aparecer
-    draw.rectangle([0, 0, 1080, 250], fill=(0, 0, 0, 180))
-    
-    # Escreve o título (Headline)
-    # Nota: Você precisaria de um arquivo de fonte .ttf no seu projeto
+# No seu bloco de API SETUP, adicione:
+tavily = TavilyClient(api_key=st.secrets["TAVILY_API_KEY"])
+
+def buscar_noticias_reais(tema):
     try:
-        font = ImageFont.truetype("Arial.ttf", 60)
-    except:
-        font = ImageFont.load_default()
+        # Busca notícias recentes do dia
+        # search_depth="advanced" traz resultados mais precisos
+        busca = tavily.search(
+            query=f"notícias automotivas de hoje {tema}",
+            search_depth="advanced",
+            max_results=1,
+            include_images=True # ESSENCIAL para pegar a foto da notícia
+        )
         
-    draw.text((50, 50), titulo, fill="white", font=font)
+        if busca['results']:
+            noticia = busca['results'][0]
+            link_imagem = busca.get('images', [None])[0] # Pega a primeira imagem da busca
+            
+            # Se a busca não retornar imagem, usamos uma reserva (fallback)
+            if not link_imagem:
+                link_imagem = "https://images.unsplash.com/photo-1503376780353-7e6692767b70"
+                
+            return {
+                "titulo": noticia['title'],
+                "resumo": noticia['content'],
+                "url": noticia['url'],
+                "imagem": link_imagem
+            }
+    except Exception as e:
+        st.error(f"Erro na busca: {e}")
+        return None
+
+# --- DENTRO DO SEU BOTÃO DE GERAR ---
+if st.button("GERAR POST REAL 🚀"):
+    dados = buscar_noticias_reais(query)
     
-    return img
-
-# --- INTERFACE ---
-st.title("🚗 AutoNews AI Poster")
-
-comando = st.text_input("O que você quer postar?", placeholder="noticias de hoje do mundo automotivo")
-
-if st.button("GERAR POST"):
-    with st.spinner("Buscando notícias e criando arte..."):
-        # 1. Aqui você chamaria uma API de busca (como Tavily)
-        # Vamos simular que achamos uma notícia:
-        noticia_titulo = "Novo SUV Elétrico bate recorde de vendas em 2026!"
-        imagem_url = "https://images.unsplash.com/photo-1503376780353-7e6692767b70" # Exemplo
-        
-        # 2. IA gera as hashtags
-        hashtags = "#automotive #news #future #electriccars"
-        
-        # 3. Cria o card visual
-        card_pronto = criar_card(imagem_url, noticia_titulo)
-        
-        # 4. Exibe no App
-        st.image(card_pronto, caption="Pronto para postar!")
-        st.write(f"**Legenda sugerida:** {noticia_titulo}")
-        st.code(hashtags)
-        
-        # 5. Botão de Download
-        buf = BytesIO()
-        card_pronto.save(buf, format="PNG")
-        st.download_button("📥 Baixar Imagem", buf.getvalue(), "post_automotivo.png", "image/png")
+    if dados:
+        # Agora mandamos o CONTEÚDO REAL da notícia para o Groq
+        prompt_ia = f"""
+        Com base nesta notícia: {dados['resumo']}
+        Gere um título curto (máx 50 caracteres) para colocar na imagem e 5 hashtags.
+        """
+        # ... resto do código para gerar o card usando dados['imagem']
