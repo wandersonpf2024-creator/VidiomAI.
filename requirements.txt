@@ -1,10 +1,6 @@
 streamlit
-newspaper3k
-beautifulsoup4
-requests
-Pillow
-groq
 supabase
-lxml
-nltk
-httpx
+groq
+pillow
+requests
+reportlab
